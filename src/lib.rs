@@ -544,6 +544,10 @@ impl<K: Hash + Eq, V: PartialEq, S: HashState> PartialEq for LinkedHashMap<K, V,
 
 impl<K: Hash + Eq, V: Eq, S: HashState> Eq for LinkedHashMap<K, V, S> {}
 
+impl<K: Hash + Eq, V: Hash, S: HashState> Hash for LinkedHashMap<K, V, S> {
+    fn hash<H: Hasher>(&self, h: &mut H) { for e in self.iter() { e.hash(h); } }
+}
+
 unsafe impl<K: Send, V: Send, S: Send> Send for LinkedHashMap<K, V, S> {}
 
 unsafe impl<K: Sync, V: Sync, S: Sync> Sync for LinkedHashMap<K, V, S> {}
