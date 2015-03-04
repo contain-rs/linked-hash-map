@@ -33,10 +33,11 @@
 #![feature(unsafe_destructor)]
 #![feature(std_misc)]
 #![feature(alloc)]
+#![feature(core)]
 
 use std::borrow::Borrow;
 use std::boxed;
-use std::cmp::{PartialEq, Eq};
+use std::cmp::{PartialEq, Eq, Ordering};
 use std::collections::hash_map::{self, HashMap};
 use std::collections::hash_state::HashState;
 use std::default::Default;
@@ -543,6 +544,18 @@ impl<K: Hash + Eq, V: PartialEq, S: HashState> PartialEq for LinkedHashMap<K, V,
 }
 
 impl<K: Hash + Eq, V: Eq, S: HashState> Eq for LinkedHashMap<K, V, S> {}
+
+impl<K: Hash + Eq + PartialOrd, V: PartialOrd, S: HashState> PartialOrd for LinkedHashMap<K, V, S> {
+    fn partial_cmp(&self, other: &LinkedHashMap<K, V, S>) -> Option<Ordering> {
+        iter::order::partial_cmp(self.iter(), other.iter())
+    }
+}
+
+impl<K: Hash + Eq + Ord, V: Ord, S: HashState> Ord for LinkedHashMap<K, V, S> {
+    fn cmp(&self, other: &LinkedHashMap<K, V, S>) -> Ordering {
+        iter::order::cmp(self.iter(), other.iter())
+    }
+}
 
 impl<K: Hash + Eq, V: Hash, S: HashState> Hash for LinkedHashMap<K, V, S> {
     fn hash<H: Hasher>(&self, h: &mut H) { for e in self.iter() { e.hash(h); } }
