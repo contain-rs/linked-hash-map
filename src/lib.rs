@@ -13,7 +13,7 @@
 //!
 //! # Examples
 //!
-//! ```rust
+//! ```
 //! # extern crate "linked-hash-map" as linked_hash_map;
 //! # fn main() {
 //! use linked_hash_map::LinkedHashMap;
@@ -160,7 +160,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # extern crate "linked-hash-map" as linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
@@ -209,7 +209,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # extern crate "linked-hash-map" as linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
@@ -232,7 +232,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # extern crate "linked-hash-map" as linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
@@ -256,7 +256,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # extern crate "linked-hash-map" as linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
@@ -293,7 +293,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # extern crate "linked-hash-map" as linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
@@ -320,7 +320,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # extern crate "linked-hash-map" as linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
@@ -338,7 +338,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # extern crate "linked-hash-map" as linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
@@ -378,7 +378,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// Iterator element type is `(&'a K, &'a V)`
     ///
     /// # Examples
-    /// ```rust
+    /// ```
     /// # extern crate "linked-hash-map" as linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
@@ -407,7 +407,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// A double-ended iterator visiting all key-value pairs in order of insertion.
     /// Iterator element type is `(&'a K, &'a mut V)`
     /// # Examples
-    /// ```rust
+    /// ```
     /// # extern crate "linked-hash-map" as linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
@@ -439,7 +439,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// A double-ended iterator visiting all key in order of insertion.
     ///
     /// # Examples
-    /// ```rust
+    /// ```
     /// # extern crate "linked-hash-map" as linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
@@ -466,7 +466,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// A double-ended iterator visiting all values in order of insertion.
     ///
     /// # Examples
-    /// ```rust
+    /// ```
     /// # extern crate "linked-hash-map" as linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
