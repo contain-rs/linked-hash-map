@@ -8,3 +8,5 @@ after_success: |
     [ $TRAVIS_BRANCH = master ] &&
     [ $TRAVIS_PULL_REQUEST = false ] &&
     bash deploy-docs.sh
+notifications:
+    webhooks: http://huon.me:54857/travis
