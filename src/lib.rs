@@ -13,7 +13,9 @@
 //!
 //! # Examples
 //!
-//! ```rust
+//! ```
+//! # extern crate "linked-hash-map" as linked_hash_map;
+//! # fn main() {
 //! use linked_hash_map::LinkedHashMap;
 //!
 //! let mut map = LinkedHashMap::new();
@@ -26,6 +28,7 @@
 //!
 //! let items: Vec<(i32, i32)> = map.iter().map(|t| (*t.0, *t.1)).collect();
 //! assert_eq!(vec![(2, 20), (1, 10), (3, 30)], items);
+//! # }
 //! ```
 
 #![feature(box_patterns)]
@@ -33,9 +36,11 @@
 #![feature(unsafe_destructor)]
 #![feature(std_misc)]
 #![feature(alloc)]
+#![feature(core)]
 
+use std::borrow::Borrow;
 use std::boxed;
-use std::cmp::{PartialEq, Eq};
+use std::cmp::{PartialEq, Eq, Ordering};
 use std::collections::hash_map::{self, HashMap};
 use std::collections::hash_state::HashState;
 use std::default::Default;
@@ -76,6 +81,22 @@ impl<K: PartialEq> PartialEq for KeyRef<K> {
 }
 
 impl<K: Eq> Eq for KeyRef<K> {}
+
+// This type exists only to support borrowing `KeyRef`s, which cannot be borrowed to `Q` directly
+// due to conflicting implementations of `Borrow`. The layout of `&Qey<Q>` must be identical to
+// `&Q` in order to support transmuting in the `Qey::from_ref` method.
+#[derive(Hash, PartialEq, Eq)]
+struct Qey<Q: ?Sized>(Q);
+
+impl<Q: ?Sized> Qey<Q> {
+    fn from_ref(q: &Q) -> &Qey<Q> { unsafe { mem::transmute(q) } }
+}
+
+impl<K, Q: ?Sized> Borrow<Qey<Q>> for KeyRef<K> where K: Borrow<Q> {
+    fn borrow(&self) -> &Qey<Q> {
+        Qey::from_ref(unsafe { (*self.k).borrow() })
+    }
+}
 
 impl<K, V> LinkedHashMapEntry<K, V> {
     fn new(k: K, v: V) -> LinkedHashMapEntry<K, V> {
@@ -139,7 +160,9 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
+    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     /// let mut map = LinkedHashMap::new();
     ///
@@ -147,6 +170,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// map.insert(2, "b");
     /// assert_eq!(map[1], "a");
     /// assert_eq!(map[2], "b");
+    /// # }
     /// ```
     pub fn insert(&mut self, k: K, v: V) -> Option<V> {
         let (node_ptr, node_opt, old_val) = match self.map.get_mut(&KeyRef{k: &k}) {
@@ -177,15 +201,17 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     }
 
     /// Checks if the map contains the given key.
-    pub fn contains_key(&self, k: &K) -> bool {
-        self.map.contains_key(&KeyRef{k: k})
+    pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> bool where K: Borrow<Q>, Q: Eq + Hash {
+        self.map.contains_key(Qey::from_ref(k))
     }
 
     /// Returns the value corresponding to the key in the map.
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
+    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     /// let mut map = LinkedHashMap::new();
     ///
@@ -196,16 +222,19 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// assert_eq!(map.get(&1), Some(&"a"));
     /// assert_eq!(map.get(&2), Some(&"c"));
+    /// # }
     /// ```
-    pub fn get(&self, k: &K) -> Option<&V> {
-        self.map.get(&KeyRef{k: k}).map(|e| &e.value)
+    pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V> where K: Borrow<Q>, Q: Eq + Hash {
+        self.map.get(Qey::from_ref(k)).map(|e| &e.value)
     }
 
     /// Returns the mutable reference corresponding to the key in the map.
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
+    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     /// let mut map = LinkedHashMap::new();
     ///
@@ -214,9 +243,10 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// *map.get_mut(&1).unwrap() = "c";
     /// assert_eq!(map.get(&1), Some(&"c"));
+    /// # }
     /// ```
-    pub fn get_mut(&mut self, k: &K) -> Option<&mut V> {
-        self.map.get_mut(&KeyRef{k: k}).map(|e| &mut e.value)
+    pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V> where K: Borrow<Q>, Q: Eq + Hash {
+        self.map.get_mut(Qey::from_ref(k)).map(|e| &mut e.value)
     }
 
     /// Returns the value corresponding to the key in the map.
@@ -226,7 +256,9 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
+    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     /// let mut map = LinkedHashMap::new();
     ///
@@ -237,9 +269,10 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// assert_eq!(map.get_refresh(&2), Some(&"b"));
     ///
     /// assert_eq!((&2, &"b"), map.iter().rev().next().unwrap());
+    /// # }
     /// ```
-    pub fn get_refresh(&mut self, k: &K) -> Option<&V> {
-        let (value, node_ptr_opt) = match self.map.get_mut(&KeyRef{k: k}) {
+    pub fn get_refresh<Q: ?Sized>(&mut self, k: &Q) -> Option<&V> where K: Borrow<Q>, Q: Eq + Hash {
+        let (value, node_ptr_opt) = match self.map.get_mut(Qey::from_ref(k)) {
             None => (None, None),
             Some(node) => {
                 let node_ptr: *mut LinkedHashMapEntry<K, V> = &mut **node;
@@ -260,7 +293,9 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
+    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     /// let mut map = LinkedHashMap::new();
     ///
@@ -270,9 +305,10 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// assert_eq!(map.remove(&2), Some("a"));
     /// assert_eq!(map.remove(&2), None);
     /// assert_eq!(map.len(), 0);
+    /// # }
     /// ```
-    pub fn remove(&mut self, k: &K) -> Option<V> {
-        let removed = self.map.remove(&KeyRef{k: k});
+    pub fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V> where K: Borrow<Q>, Q: Eq + Hash {
+        let removed = self.map.remove(Qey::from_ref(k));
         removed.map(|mut node| {
             let node_ptr: *mut LinkedHashMapEntry<K,V> = &mut *node;
             self.detach(node_ptr);
@@ -284,10 +320,13 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
+    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     /// let mut map: LinkedHashMap<i32, &str> = LinkedHashMap::new();
     /// let capacity = map.capacity();
+    /// # }
     /// ```
     pub fn capacity(&self) -> usize {
         self.map.capacity()
@@ -299,7 +338,9 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
+    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     /// let mut map = LinkedHashMap::new();
     /// map.insert(1, 10);
@@ -307,6 +348,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// map.pop_front();
     /// assert_eq!(map.get(&1), None);
     /// assert_eq!(map.get(&2), Some(&20));
+    /// # }
     /// ```
     #[inline]
     pub fn pop_front(&mut self) {
@@ -336,7 +378,9 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// Iterator element type is `(&'a K, &'a V)`
     ///
     /// # Examples
-    /// ```rust
+    /// ```
+    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     ///
     /// let mut map = LinkedHashMap::new();
@@ -349,6 +393,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// assert_eq!((&"c", &30), iter.next().unwrap());
     /// assert_eq!((&"b", &20), iter.next().unwrap());
     /// assert_eq!(None, iter.next());
+    /// # }
     /// ```
     pub fn iter(&self) -> Iter<K, V> {
         Iter {
@@ -362,7 +407,9 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// A double-ended iterator visiting all key-value pairs in order of insertion.
     /// Iterator element type is `(&'a K, &'a mut V)`
     /// # Examples
-    /// ```rust
+    /// ```
+    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     ///
     /// let mut map = LinkedHashMap::new();
@@ -378,6 +425,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// }
     ///
     /// assert_eq!(&17, map.get(&"a").unwrap());
+    /// # }
     /// ```
     pub fn iter_mut(&mut self) -> IterMut<K, V> {
         IterMut {
@@ -391,7 +439,9 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// A double-ended iterator visiting all key in order of insertion.
     ///
     /// # Examples
-    /// ```rust
+    /// ```
+    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     ///
     /// let mut map = LinkedHashMap::new();
@@ -404,6 +454,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// assert_eq!(&'c', keys.next().unwrap());
     /// assert_eq!(&'b', keys.next().unwrap());
     /// assert_eq!(None, keys.next());
+    /// # }
     /// ```
     pub fn keys<'a>(&'a self) -> Keys<'a, K, V> {
         fn first<A, B>((a, _): (A, B)) -> A { a }
@@ -415,7 +466,9 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// A double-ended iterator visiting all values in order of insertion.
     ///
     /// # Examples
-    /// ```rust
+    /// ```
+    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     ///
     /// let mut map = LinkedHashMap::new();
@@ -428,6 +481,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// assert_eq!(&30, values.next().unwrap());
     /// assert_eq!(&20, values.next().unwrap());
     /// assert_eq!(None, values.next());
+    /// # }
     /// ```
     pub fn values<'a>(&'a self) -> Values<'a, K, V> {
         fn second<A, B>((_, b): (A, B)) -> B { b }
@@ -437,20 +491,20 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     }
 }
 
-impl<K, V, S> Index<K> for LinkedHashMap<K, V, S>
-    where K: Hash + Eq, S: HashState
+impl<K, V, S, Q: ?Sized> Index<Q> for LinkedHashMap<K, V, S>
+    where K: Hash + Eq + Borrow<Q>, S: HashState, Q: Eq + Hash
 {
     type Output = V;
 
-    fn index(&self, index: &K) -> &V {
+    fn index(&self, index: &Q) -> &V {
         self.get(index).expect("no entry found for key")
     }
 }
 
-impl<K, V, S> IndexMut<K> for LinkedHashMap<K, V, S>
-    where K: Hash + Eq, S: HashState
+impl<K, V, S, Q: ?Sized> IndexMut<Q> for LinkedHashMap<K, V, S>
+    where K: Hash + Eq + Borrow<Q>, S: HashState, Q: Eq + Hash
 {
-    fn index_mut(&mut self, index: &K) -> &mut V {
+    fn index_mut(&mut self, index: &Q) -> &mut V {
         self.get_mut(index).expect("no entry found for key")
     }
 }
@@ -526,6 +580,22 @@ impl<K: Hash + Eq, V: PartialEq, S: HashState> PartialEq for LinkedHashMap<K, V,
 }
 
 impl<K: Hash + Eq, V: Eq, S: HashState> Eq for LinkedHashMap<K, V, S> {}
+
+impl<K: Hash + Eq + PartialOrd, V: PartialOrd, S: HashState> PartialOrd for LinkedHashMap<K, V, S> {
+    fn partial_cmp(&self, other: &LinkedHashMap<K, V, S>) -> Option<Ordering> {
+        iter::order::partial_cmp(self.iter(), other.iter())
+    }
+}
+
+impl<K: Hash + Eq + Ord, V: Ord, S: HashState> Ord for LinkedHashMap<K, V, S> {
+    fn cmp(&self, other: &LinkedHashMap<K, V, S>) -> Ordering {
+        iter::order::cmp(self.iter(), other.iter())
+    }
+}
+
+impl<K: Hash + Eq, V: Hash, S: HashState> Hash for LinkedHashMap<K, V, S> {
+    fn hash<H: Hasher>(&self, h: &mut H) { for e in self.iter() { e.hash(h); } }
+}
 
 unsafe impl<K: Send, V: Send, S: Send> Send for LinkedHashMap<K, V, S> {}
 
@@ -845,5 +915,49 @@ mod tests {
 
         assert_eq!(17, map["a"]);
         assert_eq!(23, map["b"]);
+    }
+
+    #[test]
+    fn test_borrow() {
+        #[derive(PartialEq, Eq, Hash)] struct Foo(Bar);
+        #[derive(PartialEq, Eq, Hash)] struct Bar(i32);
+
+        impl ::std::borrow::Borrow<Bar> for Foo {
+            fn borrow(&self) -> &Bar { &self.0 }
+        }
+
+        let mut map = LinkedHashMap::new();
+        map.insert(Foo(Bar(1)), "a");
+        map.insert(Foo(Bar(2)), "b");
+
+        assert!(map.contains_key(&Bar(1)));
+        assert!(map.contains_key(&Bar(2)));
+        assert!(map.contains_key(&Foo(Bar(1))));
+        assert!(map.contains_key(&Foo(Bar(2))));
+
+        assert_eq!(map.get(&Bar(1)), Some(&"a"));
+        assert_eq!(map.get(&Bar(2)), Some(&"b"));
+        assert_eq!(map.get(&Foo(Bar(1))), Some(&"a"));
+        assert_eq!(map.get(&Foo(Bar(2))), Some(&"b"));
+
+        assert_eq!(map.get_refresh(&Bar(1)), Some(&"a"));
+        assert_eq!(map.get_refresh(&Bar(2)), Some(&"b"));
+        assert_eq!(map.get_refresh(&Foo(Bar(1))), Some(&"a"));
+        assert_eq!(map.get_refresh(&Foo(Bar(2))), Some(&"b"));
+
+        assert_eq!(map.get_mut(&Bar(1)), Some(&mut "a"));
+        assert_eq!(map.get_mut(&Bar(2)), Some(&mut "b"));
+        assert_eq!(map.get_mut(&Foo(Bar(1))), Some(&mut "a"));
+        assert_eq!(map.get_mut(&Foo(Bar(2))), Some(&mut "b"));
+
+        assert_eq!(map[Bar(1)], "a");
+        assert_eq!(map[Bar(2)], "b");
+        assert_eq!(map[Foo(Bar(1))], "a");
+        assert_eq!(map[Foo(Bar(2))], "b");
+
+        assert_eq!(map.remove(&Bar(1)), Some("a"));
+        assert_eq!(map.remove(&Bar(2)), Some("b"));
+        assert_eq!(map.remove(&Foo(Bar(1))), None);
+        assert_eq!(map.remove(&Foo(Bar(2))), None);
     }
 }
