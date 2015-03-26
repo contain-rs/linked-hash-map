@@ -14,7 +14,7 @@
 //! # Examples
 //!
 //! ```
-//! # extern crate "linked-hash-map" as linked_hash_map;
+//! # extern crate linked_hash_map;
 //! # fn main() {
 //! use linked_hash_map::LinkedHashMap;
 //!
@@ -22,9 +22,9 @@
 //! map.insert(2, 20);
 //! map.insert(1, 10);
 //! map.insert(3, 30);
-//! assert_eq!(map[1], 10);
-//! assert_eq!(map[2], 20);
-//! assert_eq!(map[3], 30);
+//! assert_eq!(map[&1], 10);
+//! assert_eq!(map[&2], 20);
+//! assert_eq!(map[&3], 30);
 //!
 //! let items: Vec<(i32, i32)> = map.iter().map(|t| (*t.0, *t.1)).collect();
 //! assert_eq!(vec![(2, 20), (1, 10), (3, 30)], items);
@@ -161,15 +161,15 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # extern crate linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     /// let mut map = LinkedHashMap::new();
     ///
     /// map.insert(1, "a");
     /// map.insert(2, "b");
-    /// assert_eq!(map[1], "a");
-    /// assert_eq!(map[2], "b");
+    /// assert_eq!(map[&1], "a");
+    /// assert_eq!(map[&2], "b");
     /// # }
     /// ```
     pub fn insert(&mut self, k: K, v: V) -> Option<V> {
@@ -210,7 +210,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # extern crate linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     /// let mut map = LinkedHashMap::new();
@@ -233,7 +233,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # extern crate linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     /// let mut map = LinkedHashMap::new();
@@ -257,7 +257,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # extern crate linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     /// let mut map = LinkedHashMap::new();
@@ -294,7 +294,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # extern crate linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     /// let mut map = LinkedHashMap::new();
@@ -321,7 +321,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # extern crate linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     /// let mut map: LinkedHashMap<i32, &str> = LinkedHashMap::new();
@@ -339,7 +339,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # extern crate linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     /// let mut map = LinkedHashMap::new();
@@ -379,7 +379,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// # Examples
     /// ```
-    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # extern crate linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     ///
@@ -408,7 +408,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// Iterator element type is `(&'a K, &'a mut V)`
     /// # Examples
     /// ```
-    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # extern crate linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     ///
@@ -440,7 +440,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// # Examples
     /// ```
-    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # extern crate linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     ///
@@ -467,7 +467,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// # Examples
     /// ```
-    /// # extern crate "linked-hash-map" as linked_hash_map;
+    /// # extern crate linked_hash_map;
     /// # fn main() {
     /// use linked_hash_map::LinkedHashMap;
     ///
@@ -491,20 +491,20 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     }
 }
 
-impl<K, V, S, Q: ?Sized> Index<Q> for LinkedHashMap<K, V, S>
+impl<'a, K, V, S, Q: ?Sized> Index<&'a Q> for LinkedHashMap<K, V, S>
     where K: Hash + Eq + Borrow<Q>, S: HashState, Q: Eq + Hash
 {
     type Output = V;
 
-    fn index(&self, index: &Q) -> &V {
+    fn index(&self, index: &'a Q) -> &V {
         self.get(index).expect("no entry found for key")
     }
 }
 
-impl<K, V, S, Q: ?Sized> IndexMut<Q> for LinkedHashMap<K, V, S>
+impl<'a, K, V, S, Q: ?Sized> IndexMut<&'a Q> for LinkedHashMap<K, V, S>
     where K: Hash + Eq + Borrow<Q>, S: HashState, Q: Eq + Hash
 {
-    fn index_mut(&mut self, index: &Q) -> &mut V {
+    fn index_mut(&mut self, index: &'a Q) -> &mut V {
         self.get_mut(index).expect("no entry found for key")
     }
 }
@@ -789,9 +789,9 @@ mod tests {
         let mut map = LinkedHashMap::new();
         map.insert(1, 10);
         map.insert(2, 20);
-        assert_eq!(10, map[1]);
-        map[2] = 22;
-        assert_eq!(22, map[2]);
+        assert_eq!(10, map[&1]);
+        map[&2] = 22;
+        assert_eq!(22, map[&2]);
     }
 
     #[test]
@@ -913,8 +913,8 @@ mod tests {
             assert_eq!(None, iter.next());
         }
 
-        assert_eq!(17, map["a"]);
-        assert_eq!(23, map["b"]);
+        assert_eq!(17, map[&"a"]);
+        assert_eq!(23, map[&"b"]);
     }
 
     #[test]
@@ -950,10 +950,10 @@ mod tests {
         assert_eq!(map.get_mut(&Foo(Bar(1))), Some(&mut "a"));
         assert_eq!(map.get_mut(&Foo(Bar(2))), Some(&mut "b"));
 
-        assert_eq!(map[Bar(1)], "a");
-        assert_eq!(map[Bar(2)], "b");
-        assert_eq!(map[Foo(Bar(1))], "a");
-        assert_eq!(map[Foo(Bar(2))], "b");
+        assert_eq!(map[&Bar(1)], "a");
+        assert_eq!(map[&Bar(2)], "b");
+        assert_eq!(map[&Foo(Bar(1))], "a");
+        assert_eq!(map[&Foo(Bar(2))], "b");
 
         assert_eq!(map.remove(&Bar(1)), Some("a"));
         assert_eq!(map.remove(&Bar(2)), Some("b"));
