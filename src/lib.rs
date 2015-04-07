@@ -28,9 +28,6 @@
 //! assert_eq!(vec![(2, 20), (1, 10), (3, 30)], items);
 //! ```
 
-#![feature(box_patterns)]
-#![feature(box_syntax)]
-#![feature(unsafe_destructor)]
 #![feature(std_misc)]
 #![feature(alloc)]
 #![feature(core)]
@@ -120,7 +117,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     fn with_map(map: HashMap<KeyRef<K>, Box<LinkedHashMapEntry<K, V>>, S>) -> LinkedHashMap<K, V, S> {
         let map = LinkedHashMap {
             map: map,
-            head: unsafe{ boxed::into_raw(box mem::uninitialized::<LinkedHashMapEntry<K, V>>()) },
+            head: unsafe{ boxed::into_raw(Box::new(mem::uninitialized::<LinkedHashMapEntry<K, V>>())) },
         };
         unsafe {
             (*map.head).next = map.head;
@@ -174,7 +171,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
                 (node_ptr, None, Some(old_val))
             }
             None => {
-                let mut node = box LinkedHashMapEntry::new(k, v);
+                let mut node = Box::new(LinkedHashMapEntry::new(k, v));
                 let node_ptr: *mut LinkedHashMapEntry<K, V> = &mut *node;
                 (node_ptr, Some(node), None)
             }
@@ -565,14 +562,11 @@ unsafe impl<K: Send, V: Send, S: Send> Send for LinkedHashMap<K, V, S> {}
 
 unsafe impl<K: Sync, V: Sync, S: Sync> Sync for LinkedHashMap<K, V, S> {}
 
-#[unsafe_destructor]
 impl<K, V, S> Drop for LinkedHashMap<K, V, S> {
     fn drop(&mut self) {
         unsafe {
-            let node = Box::from_raw(self.head);
             // Prevent compiler from trying to drop the un-initialized field in the sigil node.
-            let box internal_node = node;
-            let LinkedHashMapEntry { next: _, prev: _, key: k, value: v } = internal_node;
+            let LinkedHashMapEntry { next: _, prev: _, key: k, value: v } = *Box::from_raw(self.head);
             mem::forget(k);
             mem::forget(v);
         }
