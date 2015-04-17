@@ -28,38 +28,32 @@
 //! assert_eq!(vec![(2, 20), (1, 10), (3, 30)], items);
 //! ```
 
-#![feature(std_misc)]
-#![feature(alloc)]
-#![feature(core)]
-
 use std::borrow::Borrow;
-use std::boxed;
-use std::cmp::{PartialEq, Eq, Ordering};
-use std::collections::hash_map::{self, HashMap};
-use std::collections::hash_state::HashState;
-use std::default::Default;
+use std::cmp::{PartialEq, Eq};
+use std::collections::hash_map::{HashMap};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::iter::IntoIterator;
 use std::iter;
 use std::marker;
 use std::mem;
-use std::ops::{Index, IndexMut};
+use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::ptr;
 
 struct KeyRef<K> { k: *const K }
+type LinkMut<K, V> = *mut LinkedHashMapEntry<K, V>;
+type Link<K, V> = *const LinkedHashMapEntry<K, V>;
 
 struct LinkedHashMapEntry<K, V> {
-    next: *mut LinkedHashMapEntry<K, V>,
-    prev: *mut LinkedHashMapEntry<K, V>,
-    key: K,
-    value: V,
+    prev: LinkMut<K, V>,
+    next: LinkMut<K, V>,
+    data: Option<(K, V)>
 }
 
 /// A linked hash map.
-pub struct LinkedHashMap<K, V, S = hash_map::RandomState> {
-    map: HashMap<KeyRef<K>, Box<LinkedHashMapEntry<K, V>>, S>,
-    head: *mut LinkedHashMapEntry<K, V>,
+pub struct LinkedHashMap<K, V> {
+    map: HashMap<KeyRef<K>, Box<LinkedHashMapEntry<K, V>>>,
+    head: Box<LinkedHashMapEntry<K, V>>,
 }
 
 impl<K: Hash> Hash for KeyRef<K> {
@@ -93,13 +87,47 @@ impl<K, Q: ?Sized> Borrow<Qey<Q>> for KeyRef<K> where K: Borrow<Q> {
 }
 
 impl<K, V> LinkedHashMapEntry<K, V> {
+    fn placeholder() -> LinkedHashMapEntry<K, V> {
+        LinkedHashMapEntry {
+            prev: ptr::null_mut(),
+            next: ptr::null_mut(),
+            data: None
+        }
+    }
+
     fn new(k: K, v: V) -> LinkedHashMapEntry<K, V> {
         LinkedHashMapEntry {
-            key: k,
-            value: v,
-            next: ptr::null_mut(),
             prev: ptr::null_mut(),
+            next: ptr::null_mut(),
+            data: Some((k, v)),
         }
+    }
+
+    // ptr functions stop borrow checker, which cannot
+    // determine validity in a few places
+
+    fn key_ptr(&self) -> *const K {
+        self.key()
+    }
+
+    fn value_ptr(&self) -> *const V {
+        self.value()
+    }
+
+    fn value_ptr_mut(&mut self) -> *mut V {
+        self.value_mut()
+    }
+
+    fn key<'a>(&'a self) -> &'a K {
+        &self.data.as_ref().unwrap().0
+    }
+
+    fn value<'a>(&'a self) -> &'a V {
+        &self.data.as_ref().unwrap().1
+    }
+
+    fn value_mut<'a>(&'a mut self) -> &'a mut V {
+        &mut self.data.as_mut().unwrap().1
     }
 }
 
@@ -111,29 +139,15 @@ impl<K: Hash + Eq, V> LinkedHashMap<K, V> {
     pub fn with_capacity(capacity: usize) -> LinkedHashMap<K, V> {
         LinkedHashMap::with_map(HashMap::with_capacity(capacity))
     }
-}
 
-impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
-    fn with_map(map: HashMap<KeyRef<K>, Box<LinkedHashMapEntry<K, V>>, S>) -> LinkedHashMap<K, V, S> {
-        let map = LinkedHashMap {
+    fn with_map(map: HashMap<KeyRef<K>, Box<LinkedHashMapEntry<K, V>>>) -> LinkedHashMap<K, V> {
+        let mut map = LinkedHashMap {
             map: map,
-            head: unsafe{ boxed::into_raw(Box::new(mem::uninitialized::<LinkedHashMapEntry<K, V>>())) },
+            head: Box::new(LinkedHashMapEntry::placeholder()),
         };
-        unsafe {
-            (*map.head).next = map.head;
-            (*map.head).prev = map.head;
-        }
-        return map;
-    }
-
-    /// Creates an empty linked hash map with the given initial hash state.
-    pub fn with_hash_state(hash_state: S) -> LinkedHashMap<K, V, S> {
-        LinkedHashMap::with_map(HashMap::with_hash_state(hash_state))
-    }
-
-    /// Creates an empty linked hash map with the given initial capacity and hash state.
-    pub fn with_capacity_and_hash_state(capacity: usize, hash_state: S) -> LinkedHashMap<K, V, S> {
-        LinkedHashMap::with_map(HashMap::with_capacity_and_hash_state(capacity, hash_state))
+        map.head.next = map.head.deref_mut();
+        map.head.prev = map.head.deref_mut();
+        map
     }
 
     /// Reserves capacity for at least `additional` more elements to be inserted into the map. The
@@ -166,24 +180,24 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     pub fn insert(&mut self, k: K, v: V) -> Option<V> {
         let (node_ptr, node_opt, old_val) = match self.map.get_mut(&KeyRef{k: &k}) {
             Some(node) => {
-                let old_val = mem::replace(&mut node.value, v);
-                let node_ptr: *mut LinkedHashMapEntry<K, V> = &mut **node;
+                let old_val = mem::replace(node.value_mut(), v);
+                let node_ptr: LinkMut<K, V> = node.deref_mut();
                 (node_ptr, None, Some(old_val))
             }
             None => {
                 let mut node = Box::new(LinkedHashMapEntry::new(k, v));
-                let node_ptr: *mut LinkedHashMapEntry<K, V> = &mut *node;
+                let node_ptr: LinkMut<K, V> = node.deref_mut();
                 (node_ptr, Some(node), None)
             }
         };
         match node_opt {
             None => {
                 // Existing node, just update LRU position
-                self.detach(node_ptr);
+                LinkedHashMap::detach(node_ptr);
                 self.attach(node_ptr);
             }
             Some(node) => {
-                let keyref = unsafe { &(*node_ptr).key };
+                let keyref = unsafe { &(*(*node_ptr).key_ptr()) };
                 self.map.insert(KeyRef{k: keyref}, node);
                 self.attach(node_ptr);
             }
@@ -213,7 +227,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// assert_eq!(map.get(&2), Some(&"c"));
     /// ```
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V> where K: Borrow<Q>, Q: Eq + Hash {
-        self.map.get(Qey::from_ref(k)).map(|e| &e.value)
+        self.map.get(Qey::from_ref(k)).map(|e| e.value())
     }
 
     /// Returns the mutable reference corresponding to the key in the map.
@@ -231,7 +245,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// assert_eq!(map.get(&1), Some(&"c"));
     /// ```
     pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V> where K: Borrow<Q>, Q: Eq + Hash {
-        self.map.get_mut(Qey::from_ref(k)).map(|e| &mut e.value)
+        self.map.get_mut(Qey::from_ref(k)).map(|e| e.value_mut())
     }
 
     /// Returns the value corresponding to the key in the map.
@@ -253,22 +267,16 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     ///
     /// assert_eq!((&2, &"b"), map.iter().rev().next().unwrap());
     /// ```
-    pub fn get_refresh<Q: ?Sized>(&mut self, k: &Q) -> Option<&V> where K: Borrow<Q>, Q: Eq + Hash {
-        let (value, node_ptr_opt) = match self.map.get_mut(Qey::from_ref(k)) {
-            None => (None, None),
-            Some(node) => {
-                let node_ptr: *mut LinkedHashMapEntry<K, V> = &mut **node;
-                (Some(unsafe { &(*node_ptr).value }), Some(node_ptr))
-            }
-        };
-        match node_ptr_opt {
-            None => (),
-            Some(node_ptr) => {
-                self.detach(node_ptr);
-                self.attach(node_ptr);
-            }
-        }
-        return value;
+    pub fn get_refresh<'a, Q: ?Sized>(&'a mut self, k: &Q) -> Option<&'a V> where K: Borrow<Q>, Q: Eq + Hash {
+        let result = self.map.get_mut(Qey::from_ref(k)).map(|mut node| {
+            let link: LinkMut<K, V> = node.deref_mut();
+            (node.value_ptr(), link)
+        });
+        result.map(|(value, node)| {
+            LinkedHashMap::detach(node);
+            self.attach(node);
+            unsafe { &*value }
+        })
     }
 
     /// Removes and returns the value corresponding to the key from the map.
@@ -289,9 +297,8 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     pub fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V> where K: Borrow<Q>, Q: Eq + Hash {
         let removed = self.map.remove(Qey::from_ref(k));
         removed.map(|mut node| {
-            let node_ptr: *mut LinkedHashMapEntry<K,V> = &mut *node;
-            self.detach(node_ptr);
-            node.value
+            LinkedHashMap::detach(node.deref_mut());
+            node.data.unwrap().1
         })
     }
 
@@ -326,9 +333,9 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     #[inline]
     pub fn pop_front(&mut self) {
         if self.len() > 0 {
-            let lru = unsafe { (*self.head).prev };
-            self.detach(lru);
-            self.map.remove(&KeyRef{k: unsafe { &(*lru).key }});
+            let lru = self.head.prev;
+            LinkedHashMap::detach(lru);
+            self.map.remove(&KeyRef{k: unsafe { (*lru).key() }});
         }
     }
 
@@ -341,10 +348,8 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// Clear the map of all key-value pairs.
     pub fn clear(&mut self) {
         self.map.clear();
-        unsafe {
-            (*self.head).prev = self.head;
-            (*self.head).next = self.head;
-        }
+        self.head.prev = self.head.deref_mut();
+        self.head.next = self.head.deref_mut();
     }
 
     /// A double-ended iterator visiting all key-value pairs in order of insertion.
@@ -367,10 +372,10 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// ```
     pub fn iter(&self) -> Iter<K, V> {
         Iter {
-            head: unsafe { (*self.head).prev },
-            tail: self.head,
+            head: self.head.prev,
+            tail: self.head.deref(),
             remaining: self.len(),
-            marker: marker::PhantomData,
+            marker: marker::PhantomData
         }
     }
 
@@ -396,8 +401,8 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// ```
     pub fn iter_mut(&mut self) -> IterMut<K, V> {
         IterMut {
-            head: unsafe { (*self.head).prev },
-            tail: self.head,
+            head: self.head.prev,
+            tail: self.head.deref_mut(),
             remaining: self.len(),
             marker: marker::PhantomData
         }
@@ -452,8 +457,8 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     }
 }
 
-impl<'a, K, V, S, Q: ?Sized> Index<&'a Q> for LinkedHashMap<K, V, S>
-    where K: Hash + Eq + Borrow<Q>, S: HashState, Q: Eq + Hash
+impl<'a, K, V, Q: ?Sized> Index<&'a Q> for LinkedHashMap<K, V>
+    where K: Hash + Eq + Borrow<Q>, Q: Eq + Hash
 {
     type Output = V;
 
@@ -462,17 +467,17 @@ impl<'a, K, V, S, Q: ?Sized> Index<&'a Q> for LinkedHashMap<K, V, S>
     }
 }
 
-impl<'a, K, V, S, Q: ?Sized> IndexMut<&'a Q> for LinkedHashMap<K, V, S>
-    where K: Hash + Eq + Borrow<Q>, S: HashState, Q: Eq + Hash
+impl<'a, K, V, Q: ?Sized> IndexMut<&'a Q> for LinkedHashMap<K, V>
+    where K: Hash + Eq + Borrow<Q>, Q: Eq + Hash
 {
     fn index_mut(&mut self, index: &'a Q) -> &mut V {
         self.get_mut(index).expect("no entry found for key")
     }
 }
 
-impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
+impl<K: Hash + Eq, V> LinkedHashMap<K, V> {
     #[inline]
-    fn detach(&mut self, node: *mut LinkedHashMapEntry<K, V>) {
+    fn detach(node: LinkMut<K, V>) {
         unsafe {
             (*(*node).prev).next = (*node).next;
             (*(*node).next).prev = (*node).prev;
@@ -480,10 +485,10 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     }
 
     #[inline]
-    fn attach(&mut self, node: *mut LinkedHashMapEntry<K, V>) {
+    fn attach(&mut self, node: LinkMut<K, V>) {
         unsafe {
             (*node).next = (*self.head).next;
-            (*node).prev = self.head;
+            (*node).prev = self.head.deref_mut();
             (*self.head).next = node;
             (*(*node).next).prev = node;
         }
@@ -499,11 +504,7 @@ impl<K: Hash + Eq + Clone, V: Clone> Clone for LinkedHashMap<K, V> {
     }
 }
 
-impl<K: Hash + Eq, V, S: HashState + Default> Default for LinkedHashMap<K, V, S> {
-    fn default() -> LinkedHashMap<K, V, S> { LinkedHashMap::with_hash_state(Default::default()) }
-}
-
-impl<K: Hash + Eq, V, S: HashState> Extend<(K, V)> for LinkedHashMap<K, V, S> {
+impl<K: Hash + Eq, V> Extend<(K, V)> for LinkedHashMap<K, V> {
     fn extend<T: IntoIterator<Item=(K, V)>>(&mut self, iter: T) {
         for (k, v) in iter {
             self.insert(k, v);
@@ -511,16 +512,16 @@ impl<K: Hash + Eq, V, S: HashState> Extend<(K, V)> for LinkedHashMap<K, V, S> {
     }
 }
 
-impl<K: Hash + Eq, V, S: HashState + Default> iter::FromIterator<(K, V)> for LinkedHashMap<K, V, S> {
-    fn from_iter<I: IntoIterator<Item=(K, V)>>(iter: I) -> LinkedHashMap<K, V, S> {
+impl<K: Hash + Eq, V> iter::FromIterator<(K, V)> for LinkedHashMap<K, V> {
+    fn from_iter<I: IntoIterator<Item=(K, V)>>(iter: I) -> LinkedHashMap<K, V> {
         let iter = iter.into_iter();
-        let mut map = LinkedHashMap::with_capacity_and_hash_state(iter.size_hint().0, Default::default());
+        let mut map = LinkedHashMap::with_capacity(iter.size_hint().0);
         map.extend(iter);
         map
     }
 }
 
-impl<A: fmt::Debug + Hash + Eq, B: fmt::Debug, S: HashState> fmt::Debug for LinkedHashMap<A, B, S> {
+impl<A: fmt::Debug + Hash + Eq, B: fmt::Debug> fmt::Debug for LinkedHashMap<A, B> {
     /// Returns a string that lists the key-value pairs in insertion order.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         try!(write!(f, "{{"));
@@ -534,61 +535,45 @@ impl<A: fmt::Debug + Hash + Eq, B: fmt::Debug, S: HashState> fmt::Debug for Link
     }
 }
 
-impl<K: Hash + Eq, V: PartialEq, S: HashState> PartialEq for LinkedHashMap<K, V, S> {
-    fn eq(&self, other: &LinkedHashMap<K, V, S>) -> bool {
+impl<K: Hash + Eq, V: PartialEq> PartialEq for LinkedHashMap<K, V> {
+    fn eq(&self, other: &LinkedHashMap<K, V>) -> bool {
         self.len() == other.len() && self.iter().zip(other.iter()).all(|(l, r)| l == r)
     }
 }
 
-impl<K: Hash + Eq, V: Eq, S: HashState> Eq for LinkedHashMap<K, V, S> {}
+impl<K: Hash + Eq, V: Eq> Eq for LinkedHashMap<K, V> {}
 
-impl<K: Hash + Eq + PartialOrd, V: PartialOrd, S: HashState> PartialOrd for LinkedHashMap<K, V, S> {
-    fn partial_cmp(&self, other: &LinkedHashMap<K, V, S>) -> Option<Ordering> {
-        iter::order::partial_cmp(self.iter(), other.iter())
-    }
-}
-
-impl<K: Hash + Eq + Ord, V: Ord, S: HashState> Ord for LinkedHashMap<K, V, S> {
-    fn cmp(&self, other: &LinkedHashMap<K, V, S>) -> Ordering {
-        iter::order::cmp(self.iter(), other.iter())
-    }
-}
-
-impl<K: Hash + Eq, V: Hash, S: HashState> Hash for LinkedHashMap<K, V, S> {
+impl<K: Hash + Eq, V: Hash> Hash for LinkedHashMap<K, V> {
     fn hash<H: Hasher>(&self, h: &mut H) { for e in self.iter() { e.hash(h); } }
 }
 
-unsafe impl<K: Send, V: Send, S: Send> Send for LinkedHashMap<K, V, S> {}
+unsafe impl<K: Send, V: Send> Send for LinkedHashMap<K, V> {}
 
-unsafe impl<K: Sync, V: Sync, S: Sync> Sync for LinkedHashMap<K, V, S> {}
-
-impl<K, V, S> Drop for LinkedHashMap<K, V, S> {
-    fn drop(&mut self) {
-        unsafe {
-            // Prevent compiler from trying to drop the un-initialized field in the sigil node.
-            let LinkedHashMapEntry { next: _, prev: _, key: k, value: v } = *Box::from_raw(self.head);
-            mem::forget(k);
-            mem::forget(v);
-        }
-    }
-}
+unsafe impl<K: Sync, V: Sync> Sync for LinkedHashMap<K, V> {}
 
 pub struct Iter<'a, K: 'a, V: 'a> {
-    head: *const LinkedHashMapEntry<K, V>,
-    tail: *const LinkedHashMapEntry<K, V>,
+    head: Link<K, V>,
+    tail: Link<K, V>,
     remaining: usize,
     marker: marker::PhantomData<(&'a K, &'a V)>,
 }
 
 pub struct IterMut<'a, K: 'a, V: 'a> {
-    head: *mut LinkedHashMapEntry<K, V>,
-    tail: *mut LinkedHashMapEntry<K, V>,
+    head: LinkMut<K, V>,
+    tail: LinkMut<K, V>,
     remaining: usize,
     marker: marker::PhantomData<(&'a K, &'a mut V)>,
 }
 
 impl<'a, K, V> Clone for Iter<'a, K, V> {
-    fn clone(&self) -> Iter<'a, K, V> { Iter { ..*self } }
+    fn clone(&self) -> Iter<'a, K, V> {
+        Iter {
+            head: self.head.clone(),
+            tail: self.tail.clone(),
+            remaining : self.remaining,
+            marker: self.marker
+        }
+    }
 }
 
 impl<'a, K, V> Iterator for Iter<'a, K, V> {
@@ -600,9 +585,10 @@ impl<'a, K, V> Iterator for Iter<'a, K, V> {
         } else {
             self.remaining -= 1;
             unsafe {
-                let r = Some((&(*self.head).key, &(*self.head).value));
+                let key = &(*(*self.head).key_ptr());
+                let value = &(*(*self.head).value_ptr());
                 self.head = (*self.head).prev;
-                r
+                Some((key, value))
             }
         }
     }
@@ -621,9 +607,10 @@ impl<'a, K, V> Iterator for IterMut<'a, K, V> {
         } else {
             self.remaining -= 1;
             unsafe {
-                let r = Some((&(*self.head).key, &mut (*self.head).value));
+                let key = &(*(*self.head).key_ptr());
+                let value = &mut (*(*self.head).value_ptr_mut());
                 self.head = (*self.head).prev;
-                r
+                Some((key, value))
             }
         }
     }
@@ -641,8 +628,9 @@ impl<'a, K, V> DoubleEndedIterator for Iter<'a, K, V> {
             self.remaining -= 1;
             unsafe {
                 self.tail = (*self.tail).next;
-                let r = Some((&(*self.tail).key, &(*self.tail).value));
-                r
+                let key = &(*(*self.tail).key_ptr());
+                let value = &(*(*self.tail).value_ptr());
+                Some((key, value))
             }
         }
     }
@@ -656,8 +644,9 @@ impl<'a, K, V> DoubleEndedIterator for IterMut<'a, K, V> {
             self.remaining -= 1;
             unsafe {
                 self.tail = (*self.tail).next;
-                let r = Some((&(*self.tail).key, &mut (*self.tail).value));
-                r
+                let key = &(*(*self.tail).key_ptr());
+                let value = &mut (*(*self.tail).value_ptr_mut());
+                Some((key, value))
             }
         }
     }
@@ -711,13 +700,13 @@ impl<'a, K, V> DoubleEndedIterator for Values<'a, K, V> {
 
 impl<'a, K, V> ExactSizeIterator for Values<'a, K, V> {}
 
-impl<'a, K: Hash + Eq, V, S: HashState> IntoIterator for &'a LinkedHashMap<K, V, S> {
+impl<'a, K: Hash + Eq, V> IntoIterator for &'a LinkedHashMap<K, V> {
     type Item = (&'a K, &'a V);
     type IntoIter = Iter<'a, K, V>;
     fn into_iter(self) -> Iter<'a, K, V> { self.iter() }
 }
 
-impl<'a, K: Hash + Eq, V, S: HashState> IntoIterator for &'a mut LinkedHashMap<K, V, S> {
+impl<'a, K: Hash + Eq, V> IntoIterator for &'a mut LinkedHashMap<K, V> {
     type Item = (&'a K, &'a mut V);
     type IntoIter = IterMut<'a, K, V>;
     fn into_iter(self) -> IterMut<'a, K, V> { self.iter_mut() }
@@ -726,10 +715,46 @@ impl<'a, K: Hash + Eq, V, S: HashState> IntoIterator for &'a mut LinkedHashMap<K
 #[cfg(test)]
 mod tests {
     use super::LinkedHashMap;
+    use super::LinkedHashMapEntry;
+    use super::std::mem;
+    use super::std::ptr;
 
     fn assert_opt_eq<V: PartialEq>(opt: Option<&V>, v: V) {
         assert!(opt.is_some());
         assert!(opt.unwrap() == &v);
+    }
+
+    #[test]
+    fn test_entry() {
+        {
+            let placeholder = LinkedHashMapEntry::<u32, u32>::placeholder();
+            assert!(placeholder.data.is_none());
+            assert_eq!(ptr::null_mut(), placeholder.next);
+            assert_eq!(ptr::null_mut(), placeholder.prev);
+        }
+        {
+            let mut entry = LinkedHashMapEntry::new(1000, 244);
+            assert!(entry.data.is_some());
+            assert_eq!(ptr::null_mut(), entry.next);
+            assert_eq!(ptr::null_mut(), entry.prev);
+
+            assert_eq!(1000, *entry.key());
+            assert_eq!(1000, unsafe { *entry.key_ptr() });
+            assert_eq!(244, *entry.value());
+            assert_eq!(244, unsafe { *entry.value_ptr() });
+
+            mem::replace(entry.value_mut(), 2);
+            assert_eq!(1000, *entry.key());
+            assert_eq!(1000, unsafe { *entry.key_ptr() });
+            assert_eq!(2, *entry.value());
+            assert_eq!(2, unsafe { *entry.value_ptr() });
+
+            mem::replace(unsafe { &mut *entry.value_ptr_mut() }, 244);
+            assert_eq!(1000, *entry.key());
+            assert_eq!(1000, unsafe { *entry.key_ptr() });
+            assert_eq!(244, *entry.value());
+            assert_eq!(244, unsafe { *entry.value_ptr() });
+        }
     }
 
     #[test]
