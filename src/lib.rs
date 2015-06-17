@@ -117,7 +117,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     fn with_map(map: HashMap<KeyRef<K>, Box<LinkedHashMapEntry<K, V>>, S>) -> LinkedHashMap<K, V, S> {
         let map = LinkedHashMap {
             map: map,
-            head: unsafe{ boxed::into_raw(Box::new(mem::uninitialized::<LinkedHashMapEntry<K, V>>())) },
+            head: unsafe{ boxed::into_raw(Box::new(mem::uninitialized())) },
         };
         unsafe {
             (*map.head).next = map.head;
@@ -324,12 +324,76 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// assert_eq!(map.get(&2), Some(&20));
     /// ```
     #[inline]
-    pub fn pop_front(&mut self) {
+    pub fn pop_front(&mut self) -> Option<V> {
         if self.len() > 0 {
             let lru = unsafe { (*self.head).prev };
             self.detach(lru);
-            self.map.remove(&KeyRef{k: unsafe { &(*lru).key }});
+            return self.map.remove(&KeyRef{k: unsafe { &(*lru).key }}).map(|e| e.value)
         }
+        None
+    }
+
+    /// Get the first entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use linked_hash_map::LinkedHashMap;
+    /// let mut map = LinkedHashMap::new();
+    /// map.insert(1, 10);
+    /// map.insert(2, 20);
+    /// assert_eq!(map.front(), Some(&10));
+    /// ```
+    #[inline]
+    pub fn front(&self) -> Option<&V> {
+        if self.len() > 0 {
+            let lru = unsafe { (*self.head).prev };
+            return self.map.get(&KeyRef{k: unsafe { &(*lru).key }}).map(|e| &e.value)
+        }
+        None
+    }
+
+    /// Removes the last entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use linked_hash_map::LinkedHashMap;
+    /// let mut map = LinkedHashMap::new();
+    /// map.insert(1, 10);
+    /// map.insert(2, 20);
+    /// map.pop_back();
+    /// assert_eq!(map.get(&1), Some(&10));
+    /// assert_eq!(map.get(&2), None);
+    /// ```
+    #[inline]
+    pub fn pop_back(&mut self) -> Option<V> {
+        if self.len() > 0 {
+            let mru = unsafe { (*self.head).next };
+            self.detach(mru);
+            return self.map.remove(&KeyRef{k: unsafe { &(*mru).key }}).map(|e| e.value)
+        }
+        None
+    }
+
+    /// Get the last entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use linked_hash_map::LinkedHashMap;
+    /// let mut map = LinkedHashMap::new();
+    /// map.insert(1, 10);
+    /// map.insert(2, 20);
+    /// assert_eq!(map.back(), Some(&20));
+    /// ```
+    #[inline]
+    pub fn back(&mut self) -> Option<&V> {
+        if self.len() > 0 {
+            let mru = unsafe { (*self.head).next };
+            return self.map.get(&KeyRef{k: unsafe { &(*mru).key }}).map(|e| &e.value)
+        }
+        None
     }
 
     /// Returns the number of key-value pairs in the map.
@@ -797,6 +861,33 @@ mod tests {
         assert_opt_eq(map.get(&6), 60);
         assert_opt_eq(map.get(&7), 70);
         assert_opt_eq(map.get(&8), 80);
+    }
+
+
+    #[test]
+    fn test_pop() {
+        let mut map = LinkedHashMap::new();
+        map.insert(1, 10);
+        map.insert(2, 20);
+        map.insert(3, 30);
+        map.insert(4, 40);
+        map.insert(5, 50);
+        assert_eq!(map.pop_front(), Some(10));
+        assert!(map.get(&1).is_none());
+        assert_eq!(map.pop_back(), Some(50));
+        assert!(map.get(&5).is_none());
+        map.insert(6, 60);
+        map.insert(7, 70);
+        map.insert(8, 80);
+        assert_eq!(map.pop_front(), Some(20));
+        assert!(map.get(&2).is_none());
+        assert_eq!(map.pop_back(), Some(80));
+        assert!(map.get(&8).is_none());
+        map.insert(3, 30);
+        assert_eq!(map.pop_front(), Some(40));
+        assert!(map.get(&4).is_none());
+        assert_eq!(map.pop_back(), Some(30));
+        assert!(map.get(&3).is_none());
     }
 
     #[test]
