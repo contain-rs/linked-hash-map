@@ -323,11 +323,13 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// assert_eq!(map.get(&2), Some(&20));
     /// ```
     #[inline]
-    pub fn pop_front(&mut self) -> Option<V> {
+    pub fn pop_front(&mut self) -> Option<(K, V)> {
         if self.len() > 0 {
             let lru = unsafe { (*self.head).prev };
             self.detach(lru);
-            return self.map.remove(&KeyRef{k: unsafe { &(*lru).key }}).map(|e| e.value)
+            return self.map
+                .remove(&KeyRef{k: unsafe { &(*lru).key }})
+                .map(|e| { let e = *e; (e.key, e.value) })
         }
         None
     }
@@ -341,13 +343,14 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// let mut map = LinkedHashMap::new();
     /// map.insert(1, 10);
     /// map.insert(2, 20);
-    /// assert_eq!(map.front(), Some(&10));
+    /// assert_eq!(map.front(), Some((&1, &10)));
     /// ```
     #[inline]
-    pub fn front(&self) -> Option<&V> {
+    pub fn front(&self) -> Option<(&K, &V)> {
         if self.len() > 0 {
             let lru = unsafe { (*self.head).prev };
-            return self.map.get(&KeyRef{k: unsafe { &(*lru).key }}).map(|e| &e.value)
+            return self.map.get(&KeyRef{k: unsafe { &(*lru).key }})
+                .map(|e| (&e.key, &e.value))
         }
         None
     }
@@ -366,11 +369,13 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// assert_eq!(map.get(&2), None);
     /// ```
     #[inline]
-    pub fn pop_back(&mut self) -> Option<V> {
+    pub fn pop_back(&mut self) -> Option<(K, V)> {
         if self.len() > 0 {
             let mru = unsafe { (*self.head).next };
             self.detach(mru);
-            return self.map.remove(&KeyRef{k: unsafe { &(*mru).key }}).map(|e| e.value)
+            return self.map
+                .remove(&KeyRef{k: unsafe { &(*mru).key }})
+                .map(|e| { let e = *e; (e.key, e.value) })
         }
         None
     }
@@ -384,13 +389,14 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// let mut map = LinkedHashMap::new();
     /// map.insert(1, 10);
     /// map.insert(2, 20);
-    /// assert_eq!(map.back(), Some(&20));
+    /// assert_eq!(map.back(), Some((&2, &20)));
     /// ```
     #[inline]
-    pub fn back(&mut self) -> Option<&V> {
+    pub fn back(&mut self) -> Option<(&K, &V)> {
         if self.len() > 0 {
             let mru = unsafe { (*self.head).next };
-            return self.map.get(&KeyRef{k: unsafe { &(*mru).key }}).map(|e| &e.value)
+            return self.map.get(&KeyRef{k: unsafe { &(*mru).key }})
+                .map(|e| (&e.key, &e.value))
         }
         None
     }
@@ -871,21 +877,21 @@ mod tests {
         map.insert(3, 30);
         map.insert(4, 40);
         map.insert(5, 50);
-        assert_eq!(map.pop_front(), Some(10));
+        assert_eq!(map.pop_front(), Some((1, 10)));
         assert!(map.get(&1).is_none());
-        assert_eq!(map.pop_back(), Some(50));
+        assert_eq!(map.pop_back(), Some((5, 50)));
         assert!(map.get(&5).is_none());
         map.insert(6, 60);
         map.insert(7, 70);
         map.insert(8, 80);
-        assert_eq!(map.pop_front(), Some(20));
+        assert_eq!(map.pop_front(), Some((2, 20)));
         assert!(map.get(&2).is_none());
-        assert_eq!(map.pop_back(), Some(80));
+        assert_eq!(map.pop_back(), Some((8, 80)));
         assert!(map.get(&8).is_none());
         map.insert(3, 30);
-        assert_eq!(map.pop_front(), Some(40));
+        assert_eq!(map.pop_front(), Some((4, 40)));
         assert!(map.get(&4).is_none());
-        assert_eq!(map.pop_back(), Some(30));
+        assert_eq!(map.pop_back(), Some((3, 30)));
         assert!(map.get(&3).is_none());
     }
 
