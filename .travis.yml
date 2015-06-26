@@ -1,6 +1,6 @@
 language: rust
 rust:
-	- nightly
+    - nightly
 sudo: false
 matrix:
   include:
