@@ -28,9 +28,9 @@
 //! assert_eq!(vec![(2, 20), (1, 10), (3, 30)], items);
 //! ```
 
-#![feature(std_misc)]
-#![feature(alloc)]
-#![feature(core)]
+#![feature(hashmap_hasher)]
+#![feature(box_raw)]
+#![feature(iter_order)]
 
 use std::borrow::Borrow;
 use std::boxed;
