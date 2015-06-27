@@ -28,12 +28,11 @@
 //! assert_eq!(vec![(2, 20), (1, 10), (3, 30)], items);
 //! ```
 
-#![feature(std_misc)]
-#![feature(alloc)]
-#![feature(core)]
+#![feature(hashmap_hasher)]
+#![feature(box_raw)]
+#![feature(iter_order)]
 
 use std::borrow::Borrow;
-use std::boxed;
 use std::cmp::{PartialEq, Eq, Ordering};
 use std::collections::hash_map::{self, HashMap};
 use std::collections::hash_state::HashState;
@@ -117,7 +116,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     fn with_map(map: HashMap<KeyRef<K>, Box<LinkedHashMapEntry<K, V>>, S>) -> LinkedHashMap<K, V, S> {
         let map = LinkedHashMap {
             map: map,
-            head: unsafe{ boxed::into_raw(Box::new(mem::uninitialized())) },
+            head: unsafe{ Box::into_raw(Box::new(mem::uninitialized())) },
         };
         unsafe {
             (*map.head).next = map.head;
