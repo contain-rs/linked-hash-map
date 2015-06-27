@@ -248,16 +248,16 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// map.insert(2, "b");
     /// map.insert(3, "d");
     ///
-    /// assert_eq!(map.get_refresh(&2), Some(&"b"));
+    /// assert_eq!(map.get_refresh(&2), Some(&mut "b"));
     ///
     /// assert_eq!((&2, &"b"), map.iter().rev().next().unwrap());
     /// ```
-    pub fn get_refresh<Q: ?Sized>(&mut self, k: &Q) -> Option<&V> where K: Borrow<Q>, Q: Eq + Hash {
+    pub fn get_refresh<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V> where K: Borrow<Q>, Q: Eq + Hash {
         let (value, node_ptr_opt) = match self.map.get_mut(Qey::from_ref(k)) {
             None => (None, None),
             Some(node) => {
                 let node_ptr: *mut LinkedHashMapEntry<K, V> = &mut **node;
-                (Some(unsafe { &(*node_ptr).value }), Some(node_ptr))
+                (Some(unsafe { &mut(*node_ptr).value }), Some(node_ptr))
             }
         };
         match node_ptr_opt {
@@ -842,7 +842,7 @@ mod tests {
         assert_eq!(format!("{:?}", map), "{1: 10, 3: 30, 2: 22}");
         map.get(&3);
         assert_eq!(format!("{:?}", map), "{1: 10, 3: 30, 2: 22}");
-        map.get_refresh(&3);
+        map.get_refresh(&mut 3);
         assert_eq!(format!("{:?}", map), "{1: 10, 2: 22, 3: 30}");
         map.clear();
         assert_eq!(format!("{:?}", map), "{}");
@@ -994,10 +994,10 @@ mod tests {
         assert_eq!(map.get(&Foo(Bar(1))), Some(&"a"));
         assert_eq!(map.get(&Foo(Bar(2))), Some(&"b"));
 
-        assert_eq!(map.get_refresh(&Bar(1)), Some(&"a"));
-        assert_eq!(map.get_refresh(&Bar(2)), Some(&"b"));
-        assert_eq!(map.get_refresh(&Foo(Bar(1))), Some(&"a"));
-        assert_eq!(map.get_refresh(&Foo(Bar(2))), Some(&"b"));
+        assert_eq!(map.get_refresh(&Bar(1)), Some(&mut "a"));
+        assert_eq!(map.get_refresh(&Bar(2)), Some(&mut "b"));
+        assert_eq!(map.get_refresh(&Foo(Bar(1))), Some(&mut "a"));
+        assert_eq!(map.get_refresh(&Foo(Bar(2))), Some(&mut "b"));
 
         assert_eq!(map.get_mut(&Bar(1)), Some(&mut "a"));
         assert_eq!(map.get_mut(&Bar(2)), Some(&mut "b"));
