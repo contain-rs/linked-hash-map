@@ -31,6 +31,7 @@
 #![feature(hashmap_hasher)]
 #![feature(box_raw)]
 #![feature(iter_order)]
+#![cfg_attr(test, feature(test))]
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -57,6 +58,7 @@ struct LinkedHashMapEntry<K, V> {
 pub struct LinkedHashMap<K, V, S = hash_map::RandomState> {
     map: HashMap<KeyRef<K>, Box<LinkedHashMapEntry<K, V>>, S>,
     head: *mut LinkedHashMapEntry<K, V>,
+    free: *mut LinkedHashMapEntry<K, V>,
 }
 
 impl<K: Hash> Hash for KeyRef<K> {
@@ -117,11 +119,26 @@ impl<K: Hash + Eq, V> LinkedHashMap<K, V> {
     }
 }
 
+impl<K, V, S> LinkedHashMap<K, V, S> {
+    fn clear_free_list(&mut self) {
+        unsafe {
+            let mut free = self.free;
+            while ! free.is_null() {
+                let next_free = (*free).next;
+                drop_empty_entry_box(free);
+                free = next_free;
+            }
+            self.free = ptr::null_mut();
+        }
+    }
+}
+
 impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     fn with_map(map: HashMap<KeyRef<K>, Box<LinkedHashMapEntry<K, V>>, S>) -> LinkedHashMap<K, V, S> {
         LinkedHashMap {
             map: map,
             head: ptr::null_mut(),
+            free: ptr::null_mut(),
         }
     }
 
@@ -146,7 +163,10 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// Shrinks the capacity of the map as much as possible. It will drop down as much as possible
     /// while maintaining the internal rules and possibly leaving some space in accordance with the
     /// resize policy.
-    pub fn shrink_to_fit(&mut self) { self.map.shrink_to_fit(); }
+    pub fn shrink_to_fit(&mut self) {
+        self.map.shrink_to_fit();
+        self.clear_free_list();
+    }
 
     /// Inserts a key-value pair into the map. If the key already existed, the old value is
     /// returned.
@@ -178,7 +198,17 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
                 (node_ptr, None, Some(old_val))
             }
             None => {
-                let mut node = Box::new(LinkedHashMapEntry::new(k, v));
+                let mut node = if self.free.is_null() {
+                    Box::new(LinkedHashMapEntry::new(k, v))
+                } else {
+                    // use a recycled box
+                    unsafe {
+                        let free = self.free;
+                        self.free = (*free).next;
+                        ptr::write(free, LinkedHashMapEntry::new(k, v));
+                        Box::from_raw(free)
+                    }
+                };
                 let node_ptr: *mut LinkedHashMapEntry<K, V> = &mut *node;
                 (node_ptr, Some(node), None)
             }
@@ -295,7 +325,15 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
         removed.map(|mut node| {
             let node_ptr: *mut LinkedHashMapEntry<K,V> = &mut *node;
             self.detach(node_ptr);
-            node.value
+            unsafe {
+                // add to free list
+                (*node_ptr).next = self.free;
+                self.free = node_ptr;
+                // forget the box but drop the key and return the value
+                mem::forget(node);
+                drop(ptr::read(&(*node_ptr).key));
+                ptr::read(&(*node_ptr).value)
+            }
         })
     }
 
@@ -675,6 +713,7 @@ impl<K, V, S> Drop for LinkedHashMap<K, V, S> {
             if ! self.head.is_null() {
                 drop_empty_entry_box(self.head);
             }
+            self.clear_free_list();
         }
     }
 }
@@ -1059,4 +1098,40 @@ mod tests {
         assert_eq!(map.remove(&Foo(Bar(1))), None);
         assert_eq!(map.remove(&Foo(Bar(2))), None);
     }
+
+    extern crate test;
+
+    #[bench]
+    fn not_recycled_cycling(b: &mut test::Bencher) {
+        let mut hash_map = LinkedHashMap::with_capacity(1000);
+        for i in (0usize..1000) {
+            hash_map.insert(i, i);
+        }
+        b.iter(|| {
+            for i in (0usize..1000) {
+                hash_map.remove(&i);
+            }
+            hash_map.clear_free_list();
+            for i in (0usize..1000) {
+                hash_map.insert(i, i);
+            }
+        })
+    }
+
+    #[bench]
+    fn recycled_cycling(b: &mut test::Bencher) {
+        let mut hash_map = LinkedHashMap::with_capacity(1000);
+        for i in (0usize..1000) {
+            hash_map.insert(i, i);
+        }
+        b.iter(|| {
+            for i in (0usize..1000) {
+                hash_map.remove(&i);
+            }
+            for i in (0usize..1000) {
+                hash_map.insert(i, i);
+            }
+        })
+    }
+
 }
