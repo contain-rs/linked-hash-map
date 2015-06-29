@@ -750,9 +750,13 @@ impl<'a, K, V> DoubleEndedIterator for IterMut<'a, K, V> {
     }
 }
 
-impl<'a, K, V> ExactSizeIterator for Iter<'a, K, V> {}
+impl<'a, K, V> ExactSizeIterator for Iter<'a, K, V> {
+    fn len(&self) -> usize { self.remaining }
+}
 
-impl<'a, K, V> ExactSizeIterator for IterMut<'a, K, V> {}
+impl<'a, K, V> ExactSizeIterator for IterMut<'a, K, V> {
+    fn len(&self) -> usize { self.remaining }
+}
 
 
 pub struct Keys<'a, K: 'a, V: 'a> {
@@ -774,7 +778,9 @@ impl<'a, K, V> DoubleEndedIterator for Keys<'a, K, V> {
     #[inline] fn next_back(&mut self) -> Option<(&'a K)> { self.inner.next_back() }
 }
 
-impl<'a, K, V> ExactSizeIterator for Keys<'a, K, V> {}
+impl<'a, K, V> ExactSizeIterator for Keys<'a, K, V> {
+    fn len(&self) -> usize { self.inner.len() }
+}
 
 
 pub struct Values<'a, K: 'a, V: 'a> {
@@ -796,7 +802,9 @@ impl<'a, K, V> DoubleEndedIterator for Values<'a, K, V> {
     #[inline] fn next_back(&mut self) -> Option<(&'a V)> { self.inner.next_back() }
 }
 
-impl<'a, K, V> ExactSizeIterator for Values<'a, K, V> {}
+impl<'a, K, V> ExactSizeIterator for Values<'a, K, V> {
+    fn len(&self) -> usize { self.inner.len() }
+}
 
 impl<'a, K: Hash + Eq, V, S: HashState> IntoIterator for &'a LinkedHashMap<K, V, S> {
     type Item = (&'a K, &'a V);
