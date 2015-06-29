@@ -603,7 +603,11 @@ impl<A: fmt::Debug + Hash + Eq, B: fmt::Debug, S: HashState> fmt::Debug for Link
 
 impl<K: Hash + Eq, V: PartialEq, S: HashState> PartialEq for LinkedHashMap<K, V, S> {
     fn eq(&self, other: &LinkedHashMap<K, V, S>) -> bool {
-        self.len() == other.len() && self.iter().zip(other.iter()).all(|(l, r)| l == r)
+        self.len() == other.len() && iter::order::eq(self.iter(), other.iter())
+    }
+
+    fn ne(&self, other: &LinkedHashMap<K, V, S>) -> bool {
+        self.len() != other.len() || iter::order::ne(self.iter(), other.iter())
     }
 }
 
@@ -612,6 +616,22 @@ impl<K: Hash + Eq, V: Eq, S: HashState> Eq for LinkedHashMap<K, V, S> {}
 impl<K: Hash + Eq + PartialOrd, V: PartialOrd, S: HashState> PartialOrd for LinkedHashMap<K, V, S> {
     fn partial_cmp(&self, other: &LinkedHashMap<K, V, S>) -> Option<Ordering> {
         iter::order::partial_cmp(self.iter(), other.iter())
+    }
+
+    fn lt(&self, other: &LinkedHashMap<K, V, S>) -> bool {
+        iter::order::lt(self.iter(), other.iter())
+    }
+
+    fn le(&self, other: &LinkedHashMap<K, V, S>) -> bool {
+        iter::order::le(self.iter(), other.iter())
+    }
+
+    fn ge(&self, other: &LinkedHashMap<K, V, S>) -> bool {
+        iter::order::ge(self.iter(), other.iter())
+    }
+
+    fn gt(&self, other: &LinkedHashMap<K, V, S>) -> bool {
+        iter::order::gt(self.iter(), other.iter())
     }
 }
 
