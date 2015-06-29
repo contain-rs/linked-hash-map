@@ -258,12 +258,9 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
                 (Some(unsafe { &mut(*node_ptr).value }), Some(node_ptr))
             }
         };
-        match node_ptr_opt {
-            None => (),
-            Some(node_ptr) => {
-                self.detach(node_ptr);
-                self.attach(node_ptr);
-            }
+        if let Some(node_ptr) = node_ptr_opt {
+            self.detach(node_ptr);
+            self.attach(node_ptr);
         }
         return value;
     }
@@ -466,7 +463,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
             head: unsafe { (*self.head).prev },
             tail: self.head,
             remaining: self.len(),
-            marker: marker::PhantomData
+            marker: marker::PhantomData,
         }
     }
 
