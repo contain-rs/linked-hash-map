@@ -25,7 +25,7 @@
 //! assert_eq!(map[&3], 30);
 //!
 //! let items: Vec<(i32, i32)> = map.iter().map(|t| (*t.0, *t.1)).collect();
-//! assert_eq!(vec![(2, 20), (1, 10), (3, 30)], items);
+//! assert_eq!(items, [(2, 20), (1, 10), (3, 30)]);
 //! ```
 
 #![feature(hashmap_hasher)]
