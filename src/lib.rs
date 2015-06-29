@@ -33,13 +33,11 @@
 #![feature(iter_order)]
 
 use std::borrow::Borrow;
-use std::cmp::{PartialEq, Eq, Ordering};
+use std::cmp::Ordering;
 use std::collections::hash_map::{self, HashMap};
 use std::collections::hash_state::HashState;
-use std::default::Default;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::iter::IntoIterator;
 use std::iter;
 use std::marker;
 use std::mem;
