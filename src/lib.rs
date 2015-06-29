@@ -25,7 +25,7 @@
 //! assert_eq!(map[&3], 30);
 //!
 //! let items: Vec<(i32, i32)> = map.iter().map(|t| (*t.0, *t.1)).collect();
-//! assert_eq!(vec![(2, 20), (1, 10), (3, 30)], items);
+//! assert_eq!(items, [(2, 20), (1, 10), (3, 30)]);
 //! ```
 
 #![feature(hashmap_hasher)]
@@ -33,13 +33,11 @@
 #![feature(iter_order)]
 
 use std::borrow::Borrow;
-use std::cmp::{PartialEq, Eq, Ordering};
+use std::cmp::Ordering;
 use std::collections::hash_map::{self, HashMap};
 use std::collections::hash_state::HashState;
-use std::default::Default;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::iter::IntoIterator;
 use std::iter;
 use std::marker;
 use std::mem;
@@ -260,12 +258,9 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
                 (Some(unsafe { &mut(*node_ptr).value }), Some(node_ptr))
             }
         };
-        match node_ptr_opt {
-            None => (),
-            Some(node_ptr) => {
-                self.detach(node_ptr);
-                self.attach(node_ptr);
-            }
+        if let Some(node_ptr) = node_ptr_opt {
+            self.detach(node_ptr);
+            self.attach(node_ptr);
         }
         return value;
     }
@@ -416,7 +411,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
         }
     }
 
-    /// A double-ended iterator visiting all key-value pairs in order of insertion.
+    /// Returns a double-ended iterator visiting all key-value pairs in order of insertion.
     /// Iterator element type is `(&'a K, &'a V)`
     ///
     /// # Examples
@@ -443,7 +438,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
         }
     }
 
-    /// A double-ended iterator visiting all key-value pairs in order of insertion.
+    /// Returns a double-ended iterator visiting all key-value pairs in order of insertion.
     /// Iterator element type is `(&'a K, &'a mut V)`
     /// # Examples
     /// ```
@@ -468,11 +463,11 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
             head: unsafe { (*self.head).prev },
             tail: self.head,
             remaining: self.len(),
-            marker: marker::PhantomData
+            marker: marker::PhantomData,
         }
     }
 
-    /// A double-ended iterator visiting all key in order of insertion.
+    /// Returns a double-ended iterator visiting all key in order of insertion.
     ///
     /// # Examples
     /// ```
@@ -496,7 +491,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
         Keys { inner: self.iter().map(first) }
     }
 
-    /// A double-ended iterator visiting all values in order of insertion.
+    /// Returns a double-ended iterator visiting all values in order of insertion.
     ///
     /// # Examples
     /// ```
@@ -605,7 +600,11 @@ impl<A: fmt::Debug + Hash + Eq, B: fmt::Debug, S: HashState> fmt::Debug for Link
 
 impl<K: Hash + Eq, V: PartialEq, S: HashState> PartialEq for LinkedHashMap<K, V, S> {
     fn eq(&self, other: &LinkedHashMap<K, V, S>) -> bool {
-        self.len() == other.len() && self.iter().zip(other.iter()).all(|(l, r)| l == r)
+        self.len() == other.len() && iter::order::eq(self.iter(), other.iter())
+    }
+
+    fn ne(&self, other: &LinkedHashMap<K, V, S>) -> bool {
+        self.len() != other.len() || iter::order::ne(self.iter(), other.iter())
     }
 }
 
@@ -614,6 +613,22 @@ impl<K: Hash + Eq, V: Eq, S: HashState> Eq for LinkedHashMap<K, V, S> {}
 impl<K: Hash + Eq + PartialOrd, V: PartialOrd, S: HashState> PartialOrd for LinkedHashMap<K, V, S> {
     fn partial_cmp(&self, other: &LinkedHashMap<K, V, S>) -> Option<Ordering> {
         iter::order::partial_cmp(self.iter(), other.iter())
+    }
+
+    fn lt(&self, other: &LinkedHashMap<K, V, S>) -> bool {
+        iter::order::lt(self.iter(), other.iter())
+    }
+
+    fn le(&self, other: &LinkedHashMap<K, V, S>) -> bool {
+        iter::order::le(self.iter(), other.iter())
+    }
+
+    fn ge(&self, other: &LinkedHashMap<K, V, S>) -> bool {
+        iter::order::ge(self.iter(), other.iter())
+    }
+
+    fn gt(&self, other: &LinkedHashMap<K, V, S>) -> bool {
+        iter::order::gt(self.iter(), other.iter())
     }
 }
 
@@ -732,9 +747,13 @@ impl<'a, K, V> DoubleEndedIterator for IterMut<'a, K, V> {
     }
 }
 
-impl<'a, K, V> ExactSizeIterator for Iter<'a, K, V> {}
+impl<'a, K, V> ExactSizeIterator for Iter<'a, K, V> {
+    fn len(&self) -> usize { self.remaining }
+}
 
-impl<'a, K, V> ExactSizeIterator for IterMut<'a, K, V> {}
+impl<'a, K, V> ExactSizeIterator for IterMut<'a, K, V> {
+    fn len(&self) -> usize { self.remaining }
+}
 
 
 pub struct Keys<'a, K: 'a, V: 'a> {
@@ -756,7 +775,9 @@ impl<'a, K, V> DoubleEndedIterator for Keys<'a, K, V> {
     #[inline] fn next_back(&mut self) -> Option<(&'a K)> { self.inner.next_back() }
 }
 
-impl<'a, K, V> ExactSizeIterator for Keys<'a, K, V> {}
+impl<'a, K, V> ExactSizeIterator for Keys<'a, K, V> {
+    fn len(&self) -> usize { self.inner.len() }
+}
 
 
 pub struct Values<'a, K: 'a, V: 'a> {
@@ -778,7 +799,9 @@ impl<'a, K, V> DoubleEndedIterator for Values<'a, K, V> {
     #[inline] fn next_back(&mut self) -> Option<(&'a V)> { self.inner.next_back() }
 }
 
-impl<'a, K, V> ExactSizeIterator for Values<'a, K, V> {}
+impl<'a, K, V> ExactSizeIterator for Values<'a, K, V> {
+    fn len(&self) -> usize { self.inner.len() }
+}
 
 impl<'a, K: Hash + Eq, V, S: HashState> IntoIterator for &'a LinkedHashMap<K, V, S> {
     type Item = (&'a K, &'a V);
