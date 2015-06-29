@@ -414,7 +414,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
         }
     }
 
-    /// A double-ended iterator visiting all key-value pairs in order of insertion.
+    /// Returns a double-ended iterator visiting all key-value pairs in order of insertion.
     /// Iterator element type is `(&'a K, &'a V)`
     ///
     /// # Examples
@@ -441,7 +441,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
         }
     }
 
-    /// A double-ended iterator visiting all key-value pairs in order of insertion.
+    /// Returns a double-ended iterator visiting all key-value pairs in order of insertion.
     /// Iterator element type is `(&'a K, &'a mut V)`
     /// # Examples
     /// ```
@@ -470,7 +470,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
         }
     }
 
-    /// A double-ended iterator visiting all key in order of insertion.
+    /// Returns a double-ended iterator visiting all key in order of insertion.
     ///
     /// # Examples
     /// ```
@@ -494,7 +494,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
         Keys { inner: self.iter().map(first) }
     }
 
-    /// A double-ended iterator visiting all values in order of insertion.
+    /// Returns a double-ended iterator visiting all values in order of insertion.
     ///
     /// # Examples
     /// ```
