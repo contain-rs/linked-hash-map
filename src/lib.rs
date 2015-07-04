@@ -31,6 +31,7 @@
 #![feature(hashmap_hasher)]
 #![feature(box_raw)]
 #![feature(iter_order)]
+#![cfg_attr(test, feature(test))]
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -57,6 +58,7 @@ struct LinkedHashMapEntry<K, V> {
 pub struct LinkedHashMap<K, V, S = hash_map::RandomState> {
     map: HashMap<KeyRef<K>, Box<LinkedHashMapEntry<K, V>>, S>,
     head: *mut LinkedHashMapEntry<K, V>,
+    free: *mut LinkedHashMapEntry<K, V>,
 }
 
 impl<K: Hash> Hash for KeyRef<K> {
@@ -100,6 +102,13 @@ impl<K, V> LinkedHashMapEntry<K, V> {
     }
 }
 
+unsafe fn drop_empty_entry_box<K, V>(the_box: *mut LinkedHashMapEntry<K, V>) {
+    // Prevent compiler from trying to drop the un-initialized key and values in the node.
+    let LinkedHashMapEntry { key, value, .. } = *Box::from_raw(the_box);
+    mem::forget(key);
+    mem::forget(value);
+}
+
 impl<K: Hash + Eq, V> LinkedHashMap<K, V> {
     /// Creates a linked hash map.
     pub fn new() -> LinkedHashMap<K, V> { LinkedHashMap::with_map(HashMap::new()) }
@@ -110,17 +119,27 @@ impl<K: Hash + Eq, V> LinkedHashMap<K, V> {
     }
 }
 
+impl<K, V, S> LinkedHashMap<K, V, S> {
+    fn clear_free_list(&mut self) {
+        unsafe {
+            let mut free = self.free;
+            while ! free.is_null() {
+                let next_free = (*free).next;
+                drop_empty_entry_box(free);
+                free = next_free;
+            }
+            self.free = ptr::null_mut();
+        }
+    }
+}
+
 impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     fn with_map(map: HashMap<KeyRef<K>, Box<LinkedHashMapEntry<K, V>>, S>) -> LinkedHashMap<K, V, S> {
-        let map = LinkedHashMap {
+        LinkedHashMap {
             map: map,
-            head: unsafe{ Box::into_raw(Box::new(mem::uninitialized())) },
-        };
-        unsafe {
-            (*map.head).next = map.head;
-            (*map.head).prev = map.head;
+            head: ptr::null_mut(),
+            free: ptr::null_mut(),
         }
-        return map;
     }
 
     /// Creates an empty linked hash map with the given initial hash state.
@@ -144,7 +163,10 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// Shrinks the capacity of the map as much as possible. It will drop down as much as possible
     /// while maintaining the internal rules and possibly leaving some space in accordance with the
     /// resize policy.
-    pub fn shrink_to_fit(&mut self) { self.map.shrink_to_fit(); }
+    pub fn shrink_to_fit(&mut self) {
+        self.map.shrink_to_fit();
+        self.clear_free_list();
+    }
 
     /// Inserts a key-value pair into the map. If the key already existed, the old value is
     /// returned.
@@ -161,6 +183,14 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// assert_eq!(map[&2], "b");
     /// ```
     pub fn insert(&mut self, k: K, v: V) -> Option<V> {
+        if self.head.is_null() {
+            // allocate the guard node if not present
+            unsafe {
+                self.head = Box::into_raw(Box::new(mem::uninitialized()));
+                (*self.head).next = self.head;
+                (*self.head).prev = self.head;
+            }
+        }
         let (node_ptr, node_opt, old_val) = match self.map.get_mut(&KeyRef{k: &k}) {
             Some(node) => {
                 let old_val = mem::replace(&mut node.value, v);
@@ -168,7 +198,17 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
                 (node_ptr, None, Some(old_val))
             }
             None => {
-                let mut node = Box::new(LinkedHashMapEntry::new(k, v));
+                let mut node = if self.free.is_null() {
+                    Box::new(LinkedHashMapEntry::new(k, v))
+                } else {
+                    // use a recycled box
+                    unsafe {
+                        let free = self.free;
+                        self.free = (*free).next;
+                        ptr::write(free, LinkedHashMapEntry::new(k, v));
+                        Box::from_raw(free)
+                    }
+                };
                 let node_ptr: *mut LinkedHashMapEntry<K, V> = &mut *node;
                 (node_ptr, Some(node), None)
             }
@@ -285,7 +325,15 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
         removed.map(|mut node| {
             let node_ptr: *mut LinkedHashMapEntry<K,V> = &mut *node;
             self.detach(node_ptr);
-            node.value
+            unsafe {
+                // add to free list
+                (*node_ptr).next = self.free;
+                self.free = node_ptr;
+                // forget the box but drop the key and return the value
+                mem::forget(node);
+                drop(ptr::read(&(*node_ptr).key));
+                ptr::read(&(*node_ptr).value)
+            }
         })
     }
 
@@ -405,9 +453,12 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// Clear the map of all key-value pairs.
     pub fn clear(&mut self) {
         self.map.clear();
-        unsafe {
-            (*self.head).prev = self.head;
-            (*self.head).next = self.head;
+        // update the guard node if present
+        if ! self.head.is_null() {
+            unsafe {
+                (*self.head).prev = self.head;
+                (*self.head).next = self.head;
+            }
         }
     }
 
@@ -430,8 +481,13 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// assert_eq!(None, iter.next());
     /// ```
     pub fn iter(&self) -> Iter<K, V> {
+        let head = if ! self.head.is_null() {
+            unsafe { (*self.head).prev }
+        } else {
+            ptr::null_mut()
+        };
         Iter {
-            head: unsafe { (*self.head).prev },
+            head: head,
             tail: self.head,
             remaining: self.len(),
             marker: marker::PhantomData,
@@ -459,8 +515,13 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// assert_eq!(&17, map.get(&"a").unwrap());
     /// ```
     pub fn iter_mut(&mut self) -> IterMut<K, V> {
+        let head = if ! self.head.is_null() {
+            unsafe { (*self.head).prev }
+        } else {
+            ptr::null_mut()
+        };
         IterMut {
-            head: unsafe { (*self.head).prev },
+            head: head,
             tail: self.head,
             remaining: self.len(),
             marker: marker::PhantomData,
@@ -649,10 +710,10 @@ unsafe impl<K: Sync, V: Sync, S: Sync> Sync for LinkedHashMap<K, V, S> {}
 impl<K, V, S> Drop for LinkedHashMap<K, V, S> {
     fn drop(&mut self) {
         unsafe {
-            // Prevent compiler from trying to drop the un-initialized field in the sigil node.
-            let LinkedHashMapEntry { next: _, prev: _, key: k, value: v } = *Box::from_raw(self.head);
-            mem::forget(k);
-            mem::forget(v);
+            if ! self.head.is_null() {
+                drop_empty_entry_box(self.head);
+            }
+            self.clear_free_list();
         }
     }
 }
@@ -1037,4 +1098,40 @@ mod tests {
         assert_eq!(map.remove(&Foo(Bar(1))), None);
         assert_eq!(map.remove(&Foo(Bar(2))), None);
     }
+
+    extern crate test;
+
+    #[bench]
+    fn not_recycled_cycling(b: &mut test::Bencher) {
+        let mut hash_map = LinkedHashMap::with_capacity(1000);
+        for i in (0usize..1000) {
+            hash_map.insert(i, i);
+        }
+        b.iter(|| {
+            for i in (0usize..1000) {
+                hash_map.remove(&i);
+            }
+            hash_map.clear_free_list();
+            for i in (0usize..1000) {
+                hash_map.insert(i, i);
+            }
+        })
+    }
+
+    #[bench]
+    fn recycled_cycling(b: &mut test::Bencher) {
+        let mut hash_map = LinkedHashMap::with_capacity(1000);
+        for i in (0usize..1000) {
+            hash_map.insert(i, i);
+        }
+        b.iter(|| {
+            for i in (0usize..1000) {
+                hash_map.remove(&i);
+            }
+            for i in (0usize..1000) {
+                hash_map.insert(i, i);
+            }
+        })
+    }
+
 }
