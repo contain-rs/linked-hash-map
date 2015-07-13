@@ -28,6 +28,7 @@
 //! assert_eq!(items, [(2, 20), (1, 10), (3, 30)]);
 //! ```
 
+#![forbid(missing_docs)]
 #![feature(hashmap_hasher)]
 #![feature(box_raw)]
 #![feature(iter_order)]
@@ -718,6 +719,8 @@ impl<K, V, S> Drop for LinkedHashMap<K, V, S> {
     }
 }
 
+/// An insertion-order iterator over a `LinkedHashMap`'s entries, with immutable references to the
+/// values.
 pub struct Iter<'a, K: 'a, V: 'a> {
     head: *const LinkedHashMapEntry<K, V>,
     tail: *const LinkedHashMapEntry<K, V>,
@@ -725,6 +728,8 @@ pub struct Iter<'a, K: 'a, V: 'a> {
     marker: marker::PhantomData<(&'a K, &'a V)>,
 }
 
+/// An insertion-order iterator over a `LinkedHashMap`'s entries, with mutable references to the
+/// values.
 pub struct IterMut<'a, K: 'a, V: 'a> {
     head: *mut LinkedHashMapEntry<K, V>,
     tail: *mut LinkedHashMapEntry<K, V>,
@@ -817,6 +822,7 @@ impl<'a, K, V> ExactSizeIterator for IterMut<'a, K, V> {
 }
 
 
+/// An insertion-order iterator over a `LinkedHashMap`'s keys.
 pub struct Keys<'a, K: 'a, V: 'a> {
     inner: iter::Map<Iter<'a, K, V>, fn((&'a K, &'a V)) -> &'a K>
 }
@@ -841,6 +847,7 @@ impl<'a, K, V> ExactSizeIterator for Keys<'a, K, V> {
 }
 
 
+/// An insertion-order iterator over a `LinkedHashMap`'s values.
 pub struct Values<'a, K: 'a, V: 'a> {
     inner: iter::Map<Iter<'a, K, V>, fn((&'a K, &'a V)) -> &'a V>
 }
