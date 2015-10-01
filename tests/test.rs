@@ -220,3 +220,14 @@ fn test_borrow() {
     assert_eq!(map.remove(&Foo(Bar(1))), None);
     assert_eq!(map.remove(&Foo(Bar(2))), None);
 }
+
+#[test]
+fn test_send_sync() {
+    fn is_send_sync<T: Send + Sync>() {}
+
+    is_send_sync::<LinkedHashMap<u32, i32>>();
+    is_send_sync::<linked_hash_map::Iter<u32, i32>>();
+    is_send_sync::<linked_hash_map::IterMut<u32, i32>>();
+    is_send_sync::<linked_hash_map::Keys<u32, i32>>();
+    is_send_sync::<linked_hash_map::Values<u32, i32>>();
+}

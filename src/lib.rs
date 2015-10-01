@@ -728,6 +728,14 @@ pub struct IterMut<'a, K: 'a, V: 'a> {
     marker: marker::PhantomData<(&'a K, &'a mut V)>,
 }
 
+unsafe impl<'a, K, V> Send for Iter<'a, K, V> where K: Send, V: Send {}
+
+unsafe impl<'a, K, V> Send for IterMut<'a, K, V> where K: Send, V: Send {}
+
+unsafe impl<'a, K, V> Sync for Iter<'a, K, V> where K: Sync, V: Sync {}
+
+unsafe impl<'a, K, V> Sync for IterMut<'a, K, V> where K: Sync, V: Sync {}
+
 impl<'a, K, V> Clone for Iter<'a, K, V> {
     fn clone(&self) -> Self { Iter { ..*self } }
 }
