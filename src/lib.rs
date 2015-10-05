@@ -8,7 +8,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-
 //! A HashMap wrapper that holds key-value pairs in insertion order.
 //!
 //! # Examples
@@ -30,7 +29,6 @@
 
 #![forbid(missing_docs)]
 #![feature(hashmap_hasher)]
-#![feature(box_raw)]
 #![feature(iter_order)]
 #![cfg_attr(test, feature(test))]
 
@@ -69,7 +67,7 @@ impl<K: Hash> Hash for KeyRef<K> {
 }
 
 impl<K: PartialEq> PartialEq for KeyRef<K> {
-    fn eq(&self, other: &KeyRef<K>) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         unsafe{ (*self.k).eq(&*other.k) }
     }
 }
@@ -83,7 +81,7 @@ impl<K: Eq> Eq for KeyRef<K> {}
 struct Qey<Q: ?Sized>(Q);
 
 impl<Q: ?Sized> Qey<Q> {
-    fn from_ref(q: &Q) -> &Qey<Q> { unsafe { mem::transmute(q) } }
+    fn from_ref(q: &Q) -> &Self { unsafe { mem::transmute(q) } }
 }
 
 impl<K, Q: ?Sized> Borrow<Qey<Q>> for KeyRef<K> where K: Borrow<Q> {
@@ -93,7 +91,7 @@ impl<K, Q: ?Sized> Borrow<Qey<Q>> for KeyRef<K> where K: Borrow<Q> {
 }
 
 impl<K, V> LinkedHashMapEntry<K, V> {
-    fn new(k: K, v: V) -> LinkedHashMapEntry<K, V> {
+    fn new(k: K, v: V) -> Self {
         LinkedHashMapEntry {
             key: k,
             value: v,
@@ -112,11 +110,11 @@ unsafe fn drop_empty_entry_box<K, V>(the_box: *mut LinkedHashMapEntry<K, V>) {
 
 impl<K: Hash + Eq, V> LinkedHashMap<K, V> {
     /// Creates a linked hash map.
-    pub fn new() -> LinkedHashMap<K, V> { LinkedHashMap::with_map(HashMap::new()) }
+    pub fn new() -> Self { Self::with_map(HashMap::new()) }
 
     /// Creates an empty linked hash map with the given initial capacity.
-    pub fn with_capacity(capacity: usize) -> LinkedHashMap<K, V> {
-        LinkedHashMap::with_map(HashMap::with_capacity(capacity))
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self::with_map(HashMap::with_capacity(capacity))
     }
 }
 
@@ -135,7 +133,7 @@ impl<K, V, S> LinkedHashMap<K, V, S> {
 }
 
 impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
-    fn with_map(map: HashMap<KeyRef<K>, Box<LinkedHashMapEntry<K, V>>, S>) -> LinkedHashMap<K, V, S> {
+    fn with_map(map: HashMap<KeyRef<K>, Box<LinkedHashMapEntry<K, V>>, S>) -> Self {
         LinkedHashMap {
             map: map,
             head: ptr::null_mut(),
@@ -144,13 +142,13 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     }
 
     /// Creates an empty linked hash map with the given initial hash state.
-    pub fn with_hash_state(hash_state: S) -> LinkedHashMap<K, V, S> {
-        LinkedHashMap::with_map(HashMap::with_hash_state(hash_state))
+    pub fn with_hash_state(hash_state: S) -> Self {
+        Self::with_map(HashMap::with_hash_state(hash_state))
     }
 
     /// Creates an empty linked hash map with the given initial capacity and hash state.
-    pub fn with_capacity_and_hash_state(capacity: usize, hash_state: S) -> LinkedHashMap<K, V, S> {
-        LinkedHashMap::with_map(HashMap::with_capacity_and_hash_state(capacity, hash_state))
+    pub fn with_capacity_and_hash_state(capacity: usize, hash_state: S) -> Self {
+        Self::with_map(HashMap::with_capacity_and_hash_state(capacity, hash_state))
     }
 
     /// Reserves capacity for at least `additional` more elements to be inserted into the map. The
@@ -378,7 +376,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
         None
     }
 
-    /// Get the first entry.
+    /// Gets the first entry.
     ///
     /// # Examples
     ///
@@ -424,7 +422,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
         None
     }
 
-    /// Get the last entry.
+    /// Gets the last entry.
     ///
     /// # Examples
     ///
@@ -451,7 +449,7 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// Returns whether the map is currently empty.
     pub fn is_empty(&self) -> bool { self.len() == 0 }
 
-    /// Clear the map of all key-value pairs.
+    /// Clears the map of all key-value pairs.
     pub fn clear(&mut self) {
         self.map.clear();
         // update the guard node if present
@@ -620,13 +618,13 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
 // `LinkedHashMap`s without cloning the original map and clearing it. For now, only
 // `LinkedHashMap<K, V>`s implement `Clone`.
 impl<K: Hash + Eq + Clone, V: Clone> Clone for LinkedHashMap<K, V> {
-    fn clone(&self) -> LinkedHashMap<K, V> {
+    fn clone(&self) -> Self {
         self.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
     }
 }
 
 impl<K: Hash + Eq, V, S: HashState + Default> Default for LinkedHashMap<K, V, S> {
-    fn default() -> LinkedHashMap<K, V, S> { LinkedHashMap::with_hash_state(Default::default()) }
+    fn default() -> Self { LinkedHashMap::with_hash_state(Default::default()) }
 }
 
 impl<K: Hash + Eq, V, S: HashState> Extend<(K, V)> for LinkedHashMap<K, V, S> {
@@ -638,9 +636,9 @@ impl<K: Hash + Eq, V, S: HashState> Extend<(K, V)> for LinkedHashMap<K, V, S> {
 }
 
 impl<K: Hash + Eq, V, S: HashState + Default> iter::FromIterator<(K, V)> for LinkedHashMap<K, V, S> {
-    fn from_iter<I: IntoIterator<Item=(K, V)>>(iter: I) -> LinkedHashMap<K, V, S> {
+    fn from_iter<I: IntoIterator<Item=(K, V)>>(iter: I) -> Self {
         let iter = iter.into_iter();
-        let mut map = LinkedHashMap::with_capacity_and_hash_state(iter.size_hint().0, Default::default());
+        let mut map = Self::with_capacity_and_hash_state(iter.size_hint().0, Default::default());
         map.extend(iter);
         map
     }
@@ -649,54 +647,47 @@ impl<K: Hash + Eq, V, S: HashState + Default> iter::FromIterator<(K, V)> for Lin
 impl<A: fmt::Debug + Hash + Eq, B: fmt::Debug, S: HashState> fmt::Debug for LinkedHashMap<A, B, S> {
     /// Returns a string that lists the key-value pairs in insertion order.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        try!(write!(f, "{{"));
-
-        for (i, (k, v)) in self.iter().enumerate() {
-            if i != 0 { try!(write!(f, ", ")); }
-            try!(write!(f, "{:?}: {:?}", *k, *v));
-        }
-
-        write!(f, "}}")
+        f.debug_map().entries(self).finish()
     }
 }
 
 impl<K: Hash + Eq, V: PartialEq, S: HashState> PartialEq for LinkedHashMap<K, V, S> {
-    fn eq(&self, other: &LinkedHashMap<K, V, S>) -> bool {
-        self.len() == other.len() && iter::order::eq(self.iter(), other.iter())
+    fn eq(&self, other: &Self) -> bool {
+        self.len() == other.len() && self.iter().eq(other)
     }
 
-    fn ne(&self, other: &LinkedHashMap<K, V, S>) -> bool {
-        self.len() != other.len() || iter::order::ne(self.iter(), other.iter())
+    fn ne(&self, other: &Self) -> bool {
+        self.len() != other.len() || self.iter().ne(other)
     }
 }
 
 impl<K: Hash + Eq, V: Eq, S: HashState> Eq for LinkedHashMap<K, V, S> {}
 
 impl<K: Hash + Eq + PartialOrd, V: PartialOrd, S: HashState> PartialOrd for LinkedHashMap<K, V, S> {
-    fn partial_cmp(&self, other: &LinkedHashMap<K, V, S>) -> Option<Ordering> {
-        iter::order::partial_cmp(self.iter(), other.iter())
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.iter().partial_cmp(other)
     }
 
-    fn lt(&self, other: &LinkedHashMap<K, V, S>) -> bool {
-        iter::order::lt(self.iter(), other.iter())
+    fn lt(&self, other: &Self) -> bool {
+        self.iter().lt(other)
     }
 
-    fn le(&self, other: &LinkedHashMap<K, V, S>) -> bool {
-        iter::order::le(self.iter(), other.iter())
+    fn le(&self, other: &Self) -> bool {
+        self.iter().le(other)
     }
 
-    fn ge(&self, other: &LinkedHashMap<K, V, S>) -> bool {
-        iter::order::ge(self.iter(), other.iter())
+    fn ge(&self, other: &Self) -> bool {
+        self.iter().ge(other)
     }
 
-    fn gt(&self, other: &LinkedHashMap<K, V, S>) -> bool {
-        iter::order::gt(self.iter(), other.iter())
+    fn gt(&self, other: &Self) -> bool {
+        self.iter().gt(other)
     }
 }
 
 impl<K: Hash + Eq + Ord, V: Ord, S: HashState> Ord for LinkedHashMap<K, V, S> {
-    fn cmp(&self, other: &LinkedHashMap<K, V, S>) -> Ordering {
-        iter::order::cmp(self.iter(), other.iter())
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.iter().cmp(other)
     }
 }
 
@@ -737,8 +728,16 @@ pub struct IterMut<'a, K: 'a, V: 'a> {
     marker: marker::PhantomData<(&'a K, &'a mut V)>,
 }
 
+unsafe impl<'a, K, V> Send for Iter<'a, K, V> where K: Send, V: Send {}
+
+unsafe impl<'a, K, V> Send for IterMut<'a, K, V> where K: Send, V: Send {}
+
+unsafe impl<'a, K, V> Sync for Iter<'a, K, V> where K: Sync, V: Sync {}
+
+unsafe impl<'a, K, V> Sync for IterMut<'a, K, V> where K: Sync, V: Sync {}
+
 impl<'a, K, V> Clone for Iter<'a, K, V> {
-    fn clone(&self) -> Iter<'a, K, V> { Iter { ..*self } }
+    fn clone(&self) -> Self { Iter { ..*self } }
 }
 
 impl<'a, K, V> Iterator for Iter<'a, K, V> {
@@ -821,14 +820,13 @@ impl<'a, K, V> ExactSizeIterator for IterMut<'a, K, V> {
     fn len(&self) -> usize { self.remaining }
 }
 
-
 /// An insertion-order iterator over a `LinkedHashMap`'s keys.
 pub struct Keys<'a, K: 'a, V: 'a> {
     inner: iter::Map<Iter<'a, K, V>, fn((&'a K, &'a V)) -> &'a K>
 }
 
 impl<'a, K, V> Clone for Keys<'a, K, V> {
-    fn clone(&self) -> Keys<'a, K, V> { Keys { inner: self.inner.clone() } }
+    fn clone(&self) -> Self { Keys { inner: self.inner.clone() } }
 }
 
 impl<'a, K, V> Iterator for Keys<'a, K, V> {
@@ -846,14 +844,13 @@ impl<'a, K, V> ExactSizeIterator for Keys<'a, K, V> {
     fn len(&self) -> usize { self.inner.len() }
 }
 
-
 /// An insertion-order iterator over a `LinkedHashMap`'s values.
 pub struct Values<'a, K: 'a, V: 'a> {
     inner: iter::Map<Iter<'a, K, V>, fn((&'a K, &'a V)) -> &'a V>
 }
 
 impl<'a, K, V> Clone for Values<'a, K, V> {
-    fn clone(&self) -> Values<'a, K, V> { Values { inner: self.inner.clone() } }
+    fn clone(&self) -> Self { Values { inner: self.inner.clone() } }
 }
 
 impl<'a, K, V> Iterator for Values<'a, K, V> {
@@ -884,229 +881,10 @@ impl<'a, K: Hash + Eq, V, S: HashState> IntoIterator for &'a mut LinkedHashMap<K
 }
 
 #[cfg(test)]
-mod tests {
-    use super::LinkedHashMap;
-
-    fn assert_opt_eq<V: PartialEq>(opt: Option<&V>, v: V) {
-        assert!(opt.is_some());
-        assert!(opt.unwrap() == &v);
-    }
-
-    #[test]
-    fn test_insert_and_get() {
-        let mut map = LinkedHashMap::new();
-        map.insert(1, 10);
-        map.insert(2, 20);
-        assert_opt_eq(map.get(&1), 10);
-        assert_opt_eq(map.get(&2), 20);
-        assert_eq!(map.len(), 2);
-    }
-
-    #[test]
-    fn test_index() {
-        let mut map = LinkedHashMap::new();
-        map.insert(1, 10);
-        map.insert(2, 20);
-        assert_eq!(10, map[&1]);
-        map[&2] = 22;
-        assert_eq!(22, map[&2]);
-    }
-
-    #[test]
-    fn test_insert_update() {
-        let mut map = LinkedHashMap::new();
-        map.insert("1".to_string(), vec![10, 10]);
-        map.insert("1".to_string(), vec![10, 19]);
-        assert_opt_eq(map.get(&"1".to_string()), vec![10, 19]);
-        assert_eq!(map.len(), 1);
-    }
-
-    #[test]
-    fn test_debug() {
-        let mut map = LinkedHashMap::new();
-        assert_eq!(format!("{:?}", map), "{}");
-        map.insert(1, 10);
-        map.insert(2, 20);
-        map.insert(3, 30);
-        assert_eq!(format!("{:?}", map), "{1: 10, 2: 20, 3: 30}");
-        map.insert(2, 22);
-        assert_eq!(format!("{:?}", map), "{1: 10, 3: 30, 2: 22}");
-        map.get(&3);
-        assert_eq!(format!("{:?}", map), "{1: 10, 3: 30, 2: 22}");
-        map.get_refresh(&mut 3);
-        assert_eq!(format!("{:?}", map), "{1: 10, 2: 22, 3: 30}");
-        map.clear();
-        assert_eq!(format!("{:?}", map), "{}");
-    }
-
-    #[test]
-    fn test_remove() {
-        let mut map = LinkedHashMap::new();
-        map.insert(1, 10);
-        map.insert(2, 20);
-        map.insert(3, 30);
-        map.insert(4, 40);
-        map.insert(5, 50);
-        map.remove(&3);
-        map.remove(&4);
-        assert!(map.get(&3).is_none());
-        assert!(map.get(&4).is_none());
-        map.insert(6, 60);
-        map.insert(7, 70);
-        map.insert(8, 80);
-        assert_opt_eq(map.get(&6), 60);
-        assert_opt_eq(map.get(&7), 70);
-        assert_opt_eq(map.get(&8), 80);
-    }
-
-
-    #[test]
-    fn test_pop() {
-        let mut map = LinkedHashMap::new();
-        map.insert(1, 10);
-        map.insert(2, 20);
-        map.insert(3, 30);
-        map.insert(4, 40);
-        map.insert(5, 50);
-        assert_eq!(map.pop_front(), Some((1, 10)));
-        assert!(map.get(&1).is_none());
-        assert_eq!(map.pop_back(), Some((5, 50)));
-        assert!(map.get(&5).is_none());
-        map.insert(6, 60);
-        map.insert(7, 70);
-        map.insert(8, 80);
-        assert_eq!(map.pop_front(), Some((2, 20)));
-        assert!(map.get(&2).is_none());
-        assert_eq!(map.pop_back(), Some((8, 80)));
-        assert!(map.get(&8).is_none());
-        map.insert(3, 30);
-        assert_eq!(map.pop_front(), Some((4, 40)));
-        assert!(map.get(&4).is_none());
-        assert_eq!(map.pop_back(), Some((3, 30)));
-        assert!(map.get(&3).is_none());
-    }
-
-    #[test]
-    fn test_clear() {
-        let mut map = LinkedHashMap::new();
-        map.insert(1, 10);
-        map.insert(2, 20);
-        map.clear();
-        assert!(map.get(&1).is_none());
-        assert!(map.get(&2).is_none());
-        assert_eq!(format!("{:?}", map), "{}");
-    }
-
-    #[test]
-    fn test_iter() {
-        let mut map = LinkedHashMap::new();
-
-        // empty iter
-        assert_eq!(None, map.iter().next());
-
-        map.insert("a", 10);
-        map.insert("b", 20);
-        map.insert("c", 30);
-
-        // regular iter
-        let mut iter = map.iter();
-        assert_eq!((&"a", &10), iter.next().unwrap());
-        assert_eq!((&"b", &20), iter.next().unwrap());
-        assert_eq!((&"c", &30), iter.next().unwrap());
-        assert_eq!(None, iter.next());
-        assert_eq!(None, iter.next());
-
-        // reversed iter
-        let mut rev_iter = map.iter().rev();
-        assert_eq!((&"c", &30), rev_iter.next().unwrap());
-        assert_eq!((&"b", &20), rev_iter.next().unwrap());
-        assert_eq!((&"a", &10), rev_iter.next().unwrap());
-        assert_eq!(None, rev_iter.next());
-        assert_eq!(None, rev_iter.next());
-
-        // mixed
-        let mut mixed_iter = map.iter();
-        assert_eq!((&"a", &10), mixed_iter.next().unwrap());
-        assert_eq!((&"c", &30), mixed_iter.next_back().unwrap());
-        assert_eq!((&"b", &20), mixed_iter.next().unwrap());
-        assert_eq!(None, mixed_iter.next());
-        assert_eq!(None, mixed_iter.next_back());
-    }
-
-    #[test]
-    fn test_iter_mut() {
-        let mut map = LinkedHashMap::new();
-        map.insert("a", 10);
-        map.insert("c", 30);
-        map.insert("b", 20);
-
-        {
-            let mut iter = map.iter_mut();
-            let entry = iter.next().unwrap();
-            assert_eq!(&"a", entry.0);
-            *entry.1 = 17;
-
-            // reverse iterator
-            let mut iter = iter.rev();
-            let entry = iter.next().unwrap();
-            assert_eq!(&"b", entry.0);
-            *entry.1 = 23;
-
-            let entry = iter.next().unwrap();
-            assert_eq!(&"c", entry.0);
-            assert_eq!(None, iter.next());
-            assert_eq!(None, iter.next());
-        }
-
-        assert_eq!(17, map[&"a"]);
-        assert_eq!(23, map[&"b"]);
-    }
-
-    #[test]
-    fn test_borrow() {
-        #[derive(PartialEq, Eq, Hash)] struct Foo(Bar);
-        #[derive(PartialEq, Eq, Hash)] struct Bar(i32);
-
-        impl ::std::borrow::Borrow<Bar> for Foo {
-            fn borrow(&self) -> &Bar { &self.0 }
-        }
-
-        let mut map = LinkedHashMap::new();
-        map.insert(Foo(Bar(1)), "a");
-        map.insert(Foo(Bar(2)), "b");
-
-        assert!(map.contains_key(&Bar(1)));
-        assert!(map.contains_key(&Bar(2)));
-        assert!(map.contains_key(&Foo(Bar(1))));
-        assert!(map.contains_key(&Foo(Bar(2))));
-
-        assert_eq!(map.get(&Bar(1)), Some(&"a"));
-        assert_eq!(map.get(&Bar(2)), Some(&"b"));
-        assert_eq!(map.get(&Foo(Bar(1))), Some(&"a"));
-        assert_eq!(map.get(&Foo(Bar(2))), Some(&"b"));
-
-        assert_eq!(map.get_refresh(&Bar(1)), Some(&mut "a"));
-        assert_eq!(map.get_refresh(&Bar(2)), Some(&mut "b"));
-        assert_eq!(map.get_refresh(&Foo(Bar(1))), Some(&mut "a"));
-        assert_eq!(map.get_refresh(&Foo(Bar(2))), Some(&mut "b"));
-
-        assert_eq!(map.get_mut(&Bar(1)), Some(&mut "a"));
-        assert_eq!(map.get_mut(&Bar(2)), Some(&mut "b"));
-        assert_eq!(map.get_mut(&Foo(Bar(1))), Some(&mut "a"));
-        assert_eq!(map.get_mut(&Foo(Bar(2))), Some(&mut "b"));
-
-        assert_eq!(map[&Bar(1)], "a");
-        assert_eq!(map[&Bar(2)], "b");
-        assert_eq!(map[&Foo(Bar(1))], "a");
-        assert_eq!(map[&Foo(Bar(2))], "b");
-
-        assert_eq!(map.remove(&Bar(1)), Some("a"));
-        assert_eq!(map.remove(&Bar(2)), Some("b"));
-        assert_eq!(map.remove(&Foo(Bar(1))), None);
-        assert_eq!(map.remove(&Foo(Bar(2))), None);
-    }
-
+mod bench {
     extern crate test;
+
+    use super::LinkedHashMap;
 
     #[bench]
     fn not_recycled_cycling(b: &mut test::Bencher) {
@@ -1140,5 +918,4 @@ mod tests {
             }
         })
     }
-
 }
