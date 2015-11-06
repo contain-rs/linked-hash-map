@@ -29,7 +29,6 @@
 
 #![forbid(missing_docs)]
 #![feature(hashmap_hasher)]
-#![feature(iter_order)]
 #![cfg_attr(test, feature(test))]
 
 use std::borrow::Borrow;
@@ -889,15 +888,15 @@ mod bench {
     #[bench]
     fn not_recycled_cycling(b: &mut test::Bencher) {
         let mut hash_map = LinkedHashMap::with_capacity(1000);
-        for i in (0usize..1000) {
+        for i in 0usize..1000 {
             hash_map.insert(i, i);
         }
         b.iter(|| {
-            for i in (0usize..1000) {
+            for i in 0usize..1000 {
                 hash_map.remove(&i);
             }
             hash_map.clear_free_list();
-            for i in (0usize..1000) {
+            for i in 0usize..1000 {
                 hash_map.insert(i, i);
             }
         })
@@ -906,14 +905,14 @@ mod bench {
     #[bench]
     fn recycled_cycling(b: &mut test::Bencher) {
         let mut hash_map = LinkedHashMap::with_capacity(1000);
-        for i in (0usize..1000) {
+        for i in 0usize..1000 {
             hash_map.insert(i, i);
         }
         b.iter(|| {
-            for i in (0usize..1000) {
+            for i in 0usize..1000 {
                 hash_map.remove(&i);
             }
-            for i in (0usize..1000) {
+            for i in 0usize..1000 {
                 hash_map.insert(i, i);
             }
         })
