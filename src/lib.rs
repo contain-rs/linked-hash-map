@@ -231,6 +231,43 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
         })
     }
 
+    /// Returns an iterator visiting all entries in order insertion.
+    /// Iterator element type is `OccupiedEntry<K, V, S>`. Allows for removal
+    /// as well as replacing the entry.
+    ///
+    /// # Examples
+    /// ```
+    /// use linked_hash_map::LinkedHashMap;
+    ///
+    /// let mut map = LinkedHashMap::new();
+    /// map.insert("a", 10);
+    /// map.insert("c", 30);
+    /// map.insert("b", 20);
+    ///
+    /// {
+    ///     let mut iter = map.entries();
+    ///     let mut entry = iter.next().unwrap();
+    ///     assert_eq!(&"a", entry.key());
+    ///     *entry.get_mut() = 17;
+    /// }
+    ///
+    /// assert_eq!(&17, map.get(&"a").unwrap());
+    /// ```
+    pub fn entries(&mut self) -> Entries<K, V, S> {
+        let head = if ! self.head.is_null() {
+            unsafe { (*self.head).prev }
+        } else {
+            ptr::null_mut()
+        };
+        Entries {
+            map: self,
+            head: head,
+            tail: self.head,
+            remaining: self.len(),
+            marker: marker::PhantomData,
+        }
+    }
+
     /// Inserts a key-value pair into the map. If the key already existed, the old value is
     /// returned.
     ///
@@ -766,13 +803,27 @@ pub struct IterMut<'a, K: 'a, V: 'a> {
     marker: marker::PhantomData<(&'a K, &'a mut V)>,
 }
 
+/// An insertion-order iterator over a `LinkedHashMap`'s entries represented as
+/// an `OccupiedEntry`.
+pub struct Entries<'a, K: 'a, V: 'a, S: 'a> {
+    map: *mut LinkedHashMap<K, V, S>,
+    head: *mut LinkedHashMapEntry<K, V>,
+    tail: *mut LinkedHashMapEntry<K, V>,
+    remaining: usize,
+    marker: marker::PhantomData<(&'a K, &'a mut V, &'a S)>,
+}
+
 unsafe impl<'a, K, V> Send for Iter<'a, K, V> where K: Send, V: Send {}
 
 unsafe impl<'a, K, V> Send for IterMut<'a, K, V> where K: Send, V: Send {}
 
+unsafe impl<'a, K, V, S> Send for Entries<'a, K, V, S> where K: Send, V: Send, S: Send {}
+
 unsafe impl<'a, K, V> Sync for Iter<'a, K, V> where K: Sync, V: Sync {}
 
 unsafe impl<'a, K, V> Sync for IterMut<'a, K, V> where K: Sync, V: Sync {}
+
+unsafe impl<'a, K, V, S> Sync for Entries<'a, K, V, S> where K: Sync, V: Sync, S: Sync {}
 
 impl<'a, K, V> Clone for Iter<'a, K, V> {
     fn clone(&self) -> Self { Iter { ..*self } }
@@ -809,6 +860,32 @@ impl<'a, K, V> Iterator for IterMut<'a, K, V> {
             self.remaining -= 1;
             unsafe {
                 let r = Some((&(*self.head).key, &mut (*self.head).value));
+                self.head = (*self.head).prev;
+                r
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.remaining, Some(self.remaining))
+    }
+}
+
+impl<'a, K, V, S: HashState> Iterator for Entries<'a, K, V, S> {
+    type Item = OccupiedEntry<'a, K, V, S>;
+
+    fn next(&mut self) -> Option<OccupiedEntry<'a, K, V, S>> {
+        if self.head == self.tail {
+            None
+        } else {
+            self.remaining -= 1;
+            unsafe {
+                let r = Some(OccupiedEntry {
+                    map: self.map,
+                    entry: self.head,
+                    marker: marker::PhantomData,
+                });
+
                 self.head = (*self.head).prev;
                 r
             }

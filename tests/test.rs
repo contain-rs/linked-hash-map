@@ -68,6 +68,21 @@ fn test_entry_insert_vacant() {
 }
 
 #[test]
+fn test_entries_replacing() {
+    let mut map = LinkedHashMap::new();
+    map.insert("a", 10);
+
+    {
+        let mut iter = map.entries();
+        let mut entry = iter.next().unwrap();
+        assert_eq!(entry.insert(20), 10);
+        assert!(iter.next().is_none());
+    }
+
+    assert_eq!(map["a"], 20);
+}
+
+#[test]
 fn test_debug() {
     let mut map = LinkedHashMap::new();
     assert_eq!(format!("{:?}", map), "{}");
