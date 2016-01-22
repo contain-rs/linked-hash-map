@@ -824,7 +824,7 @@ pub struct IterMut<'a, K: 'a, V: 'a> {
 
 /// An insertion-order iterator over a `LinkedHashMap`'s entries represented as
 /// an `OccupiedEntry`.
-pub struct Entries<'a, K: 'a, V: 'a, S: 'a> {
+pub struct Entries<'a, K: 'a, V: 'a, S: 'a = hash_map::RandomState> {
     map: *mut LinkedHashMap<K, V, S>,
     head: *mut LinkedHashMapEntry<K, V>,
     tail: *mut LinkedHashMapEntry<K, V>,
