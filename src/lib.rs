@@ -118,6 +118,24 @@ impl<K: Hash + Eq, V> LinkedHashMap<K, V> {
 }
 
 impl<K, V, S> LinkedHashMap<K, V, S> {
+    #[inline]
+    fn detach(&mut self, node: *mut LinkedHashMapEntry<K, V>) {
+        unsafe {
+            (*(*node).prev).next = (*node).next;
+            (*(*node).next).prev = (*node).prev;
+        }
+    }
+
+    #[inline]
+    fn attach(&mut self, node: *mut LinkedHashMapEntry<K, V>) {
+        unsafe {
+            (*node).next = (*self.head).next;
+            (*node).prev = self.head;
+            (*self.head).next = node;
+            (*(*node).next).prev = node;
+        }
+    }
+
     fn clear_free_list(&mut self) {
         unsafe {
             let mut free = self.free;
@@ -127,6 +145,17 @@ impl<K, V, S> LinkedHashMap<K, V, S> {
                 free = next_free;
             }
             self.free = ptr::null_mut();
+        }
+    }
+
+    fn ensure_guard_node(&mut self) {
+        if self.head.is_null() {
+            // allocate the guard node if not present
+            unsafe {
+                self.head = Box::into_raw(Box::new(mem::uninitialized()));
+                (*self.head).next = self.head;
+                (*self.head).prev = self.head;
+            }
         }
     }
 }
@@ -166,6 +195,42 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
         self.clear_free_list();
     }
 
+    /// Gets the given key's corresponding entry in the map for in-place manipulation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use linked_hash_map::LinkedHashMap;
+    ///
+    /// let mut letters = LinkedHashMap::new();
+    ///
+    /// for ch in "a short treatise on fungi".chars() {
+    ///     let counter = letters.entry(ch).or_insert(0);
+    ///     *counter += 1;
+    /// }
+    ///
+    /// assert_eq!(letters[&'s'], 2);
+    /// assert_eq!(letters[&'t'], 3);
+    /// assert_eq!(letters[&'u'], 1);
+    /// assert_eq!(letters.get(&'y'), None);
+    /// ```
+    pub fn entry(&mut self, k: K) -> Entry<K, V, S> {
+        let self_ptr: *mut Self = self;
+
+        if let Some(entry) = self.map.get_mut(&KeyRef{k: &k}) {
+            return Entry::Occupied(OccupiedEntry {
+                entry: &mut **entry,
+                map: self_ptr,
+                marker: marker::PhantomData,
+            });
+        }
+
+        Entry::Vacant(VacantEntry {
+            key: k,
+            map: self,
+        })
+    }
+
     /// Inserts a key-value pair into the map. If the key already existed, the old value is
     /// returned.
     ///
@@ -181,14 +246,8 @@ impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
     /// assert_eq!(map[&2], "b");
     /// ```
     pub fn insert(&mut self, k: K, v: V) -> Option<V> {
-        if self.head.is_null() {
-            // allocate the guard node if not present
-            unsafe {
-                self.head = Box::into_raw(Box::new(mem::uninitialized()));
-                (*self.head).next = self.head;
-                (*self.head).prev = self.head;
-            }
-        }
+        self.ensure_guard_node();
+
         let (node_ptr, node_opt, old_val) = match self.map.get_mut(&KeyRef{k: &k}) {
             Some(node) => {
                 let old_val = mem::replace(&mut node.value, v);
@@ -593,26 +652,6 @@ impl<'a, K, V, S, Q: ?Sized> IndexMut<&'a Q> for LinkedHashMap<K, V, S>
     }
 }
 
-impl<K: Hash + Eq, V, S: HashState> LinkedHashMap<K, V, S> {
-    #[inline]
-    fn detach(&mut self, node: *mut LinkedHashMapEntry<K, V>) {
-        unsafe {
-            (*(*node).prev).next = (*node).next;
-            (*(*node).next).prev = (*node).prev;
-        }
-    }
-
-    #[inline]
-    fn attach(&mut self, node: *mut LinkedHashMapEntry<K, V>) {
-        unsafe {
-            (*node).next = (*self.head).next;
-            (*node).prev = self.head;
-            (*self.head).next = node;
-            (*(*node).next).prev = node;
-        }
-    }
-}
-
 // FIXME: `HashMap` doesn't expose its hash state, so we cannot clone fully parameterized
 // `LinkedHashMap`s without cloning the original map and clearing it. For now, only
 // `LinkedHashMap<K, V>`s implement `Clone`.
@@ -877,6 +916,163 @@ impl<'a, K: Hash + Eq, V, S: HashState> IntoIterator for &'a mut LinkedHashMap<K
     type Item = (&'a K, &'a mut V);
     type IntoIter = IterMut<'a, K, V>;
     fn into_iter(self) -> IterMut<'a, K, V> { self.iter_mut() }
+}
+
+/// A view into a single location in a map, which may be vacant or occupied.
+pub enum Entry<'a, K: 'a, V: 'a, S: 'a + HashState> {
+    /// An occupied Entry.
+    Occupied(OccupiedEntry<'a, K, V, S>),
+    /// A vacant Entry.
+    Vacant(VacantEntry<'a, K, V, S>),
+}
+
+/// A view into a single occupied location in a LinkedHashMap.
+pub struct OccupiedEntry<'a, K: 'a, V: 'a, S: 'a + HashState> {
+    entry: *mut LinkedHashMapEntry<K, V>,
+    map: *mut LinkedHashMap<K, V, S>,
+    marker: marker::PhantomData<&'a K>,
+}
+
+/// A view into a single empty location in a HashMap.
+pub struct VacantEntry<'a, K: 'a, V: 'a, S: 'a + HashState> {
+    key: K,
+    map: &'a mut LinkedHashMap<K, V, S>,
+}
+
+impl<'a, K: Hash + Eq, V, S: HashState> Entry<'a, K, V, S> {
+    /// Returns the entry key
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use linked_hash_map::LinkedHashMap;
+    ///
+    /// let mut map = LinkedHashMap::<String, u32>::new();
+    ///
+    /// assert_eq!("hello", map.entry("hello".to_string()).key());
+    /// ```
+    pub fn key(&self) -> &K {
+        match *self {
+            Entry::Occupied(ref e) => e.key(),
+            Entry::Vacant(ref e) => e.key(),
+        }
+    }
+
+    /// Ensures a value is in the entry by inserting the default if empty, and returns
+    /// a mutable reference to the value in the entry.
+    pub fn or_insert(self, default: V) -> &'a mut V {
+        match self {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => entry.insert(default),
+        }
+    }
+
+    /// Ensures a value is in the entry by inserting the result of the default function if empty,
+    /// and returns a mutable reference to the value in the entry.
+    pub fn or_insert_with<F: FnOnce() -> V>(self, default: F) -> &'a mut V {
+        match self {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => entry.insert(default()),
+        }
+    }
+}
+
+impl<'a, K: Hash + Eq, V, S: HashState> OccupiedEntry<'a, K, V, S> {
+    /// Gets a reference to the entry key
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use linked_hash_map::LinkedHashMap;
+    ///
+    /// let mut map = LinkedHashMap::new();
+    ///
+    /// map.insert("foo".to_string(), 1);
+    /// assert_eq!("foo", map.entry("foo".to_string()).key());
+    /// ```
+    pub fn key(&self) -> &K {
+        unsafe { &(*self.entry).key }
+    }
+
+    /// Gets a reference to the value in the entry.
+    pub fn get(&self) -> &V {
+        unsafe { &(*self.entry).value }
+    }
+
+    /// Gets a mutable reference to the value in the entry.
+    pub fn get_mut(&mut self) -> &mut V {
+        unsafe { &mut (*self.entry).value }
+    }
+
+    /// Converts the OccupiedEntry into a mutable reference to the value in the entry
+    /// with a lifetime bound to the map itself
+    pub fn into_mut(self) -> &'a mut V {
+        unsafe { &mut (*self.entry).value }
+    }
+
+    /// Sets the value of the entry, and returns the entry's old value
+    pub fn insert(&mut self, value: V) -> V {
+        unsafe {
+            (*self.map).ensure_guard_node();
+
+            let old_val = mem::replace(&mut (*self.entry).value, value);
+            let node_ptr: *mut LinkedHashMapEntry<K, V> = self.entry;
+
+            // Existing node, just update LRU position
+            (*self.map).detach(node_ptr);
+            (*self.map).attach(node_ptr);
+
+            old_val
+        }
+    }
+
+    /// Takes the value out of the entry, and returns it
+    pub fn remove(self) -> V {
+        unsafe { (*self.map).remove(&(*self.entry).key) }.unwrap()
+    }
+}
+
+impl<'a, K: 'a + Hash + Eq, V: 'a, S: HashState> VacantEntry<'a, K, V, S> {
+    /// Gets a reference to the entry key
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use linked_hash_map::LinkedHashMap;
+    ///
+    /// let mut map = LinkedHashMap::<String, u32>::new();
+    ///
+    /// assert_eq!("foo", map.entry("foo".to_string()).key());
+    /// ```
+    pub fn key(&self) -> &K {
+        &self.key
+    }
+
+    /// Sets the value of the entry with the VacantEntry's key,
+    /// and returns a mutable reference to it
+    pub fn insert(self, value: V) -> &'a mut V {
+        self.map.ensure_guard_node();
+
+        let mut node = if self.map.free.is_null() {
+            Box::new(LinkedHashMapEntry::new(self.key, value))
+        } else {
+            // use a recycled box
+            unsafe {
+                let free = self.map.free;
+                self.map.free = (*free).next;
+                ptr::write(free, LinkedHashMapEntry::new(self.key, value));
+                Box::from_raw(free)
+            }
+        };
+
+        let node_ptr: *mut LinkedHashMapEntry<K, V> = &mut *node;
+        let keyref = unsafe { &(*node_ptr).key };
+
+        self.map.attach(node_ptr);
+
+        &mut self.map.map.entry(KeyRef{k: keyref})
+            .or_insert(node).value
+    }
 }
 
 #[cfg(test)]
