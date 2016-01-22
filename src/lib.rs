@@ -919,7 +919,7 @@ impl<'a, K: Hash + Eq, V, S: HashState> IntoIterator for &'a mut LinkedHashMap<K
 }
 
 /// A view into a single location in a map, which may be vacant or occupied.
-pub enum Entry<'a, K: 'a, V: 'a, S: 'a + HashState> {
+pub enum Entry<'a, K: 'a, V: 'a, S: 'a = hash_map::RandomState> {
     /// An occupied Entry.
     Occupied(OccupiedEntry<'a, K, V, S>),
     /// A vacant Entry.
@@ -927,14 +927,14 @@ pub enum Entry<'a, K: 'a, V: 'a, S: 'a + HashState> {
 }
 
 /// A view into a single occupied location in a LinkedHashMap.
-pub struct OccupiedEntry<'a, K: 'a, V: 'a, S: 'a + HashState> {
+pub struct OccupiedEntry<'a, K: 'a, V: 'a, S: 'a = hash_map::RandomState> {
     entry: *mut LinkedHashMapEntry<K, V>,
     map: *mut LinkedHashMap<K, V, S>,
     marker: marker::PhantomData<&'a K>,
 }
 
 /// A view into a single empty location in a HashMap.
-pub struct VacantEntry<'a, K: 'a, V: 'a, S: 'a + HashState> {
+pub struct VacantEntry<'a, K: 'a, V: 'a, S: 'a = hash_map::RandomState> {
     key: K,
     map: &'a mut LinkedHashMap<K, V, S>,
 }
