@@ -1,6 +1,6 @@
 extern crate linked_hash_map;
 
-use linked_hash_map::LinkedHashMap;
+use linked_hash_map::{LinkedHashMap, Entry};
 
 fn assert_opt_eq<V: PartialEq>(opt: Option<&V>, v: V) {
     assert!(opt.is_some());
@@ -34,6 +34,37 @@ fn test_insert_update() {
     map.insert("1".to_string(), vec![10, 19]);
     assert_opt_eq(map.get(&"1".to_string()), vec![10, 19]);
     assert_eq!(map.len(), 1);
+}
+
+#[test]
+fn test_entry_insert_vacant() {
+    let mut map = LinkedHashMap::new();
+    match map.entry("1".to_string()) {
+        Entry::Vacant(e) => {
+            assert_eq!(*e.insert(vec![10, 10]), vec![10, 10]);
+        }
+        _ => panic!("fail"),
+    }
+    assert!(map.contains_key("1"));
+    assert_eq!(map["1"], vec![10, 10]);
+
+    match map.entry("1".to_string()) {
+        Entry::Occupied(mut e) => {
+            assert_eq!(*e.get(), vec![10, 10]);
+            assert_eq!(e.insert(vec![10, 16]), vec![10, 10]);
+        }
+        _ => panic!("fail"),
+    }
+
+    assert!(map.contains_key("1"));
+    assert_eq!(map["1"], vec![10, 16]);
+
+    match map.entry("1".to_string()) {
+        Entry::Occupied(e) => {
+            assert_eq!(e.remove(), vec![10, 16]);
+        }
+        _ => panic!("fail"),
+    }
 }
 
 #[test]
