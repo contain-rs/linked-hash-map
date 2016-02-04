@@ -890,7 +890,7 @@ impl<'a, K, V> Iterator for IterMut<'a, K, V> {
     }
 }
 
-impl<'a, K, V, S: HashState> Iterator for Entries<'a, K, V, S> {
+impl<'a, K, V, S: BuildHasher> Iterator for Entries<'a, K, V, S> {
     type Item = OccupiedEntry<'a, K, V, S>;
 
     fn next(&mut self) -> Option<OccupiedEntry<'a, K, V, S>> {
@@ -1035,7 +1035,7 @@ pub struct VacantEntry<'a, K: 'a, V: 'a, S: 'a = hash_map::RandomState> {
     map: &'a mut LinkedHashMap<K, V, S>,
 }
 
-impl<'a, K: Hash + Eq, V, S: HashState> Entry<'a, K, V, S> {
+impl<'a, K: Hash + Eq, V, S: BuildHasher> Entry<'a, K, V, S> {
     /// Returns the entry key
     ///
     /// # Examples
@@ -1073,7 +1073,7 @@ impl<'a, K: Hash + Eq, V, S: HashState> Entry<'a, K, V, S> {
     }
 }
 
-impl<'a, K: Hash + Eq, V, S: HashState> OccupiedEntry<'a, K, V, S> {
+impl<'a, K: Hash + Eq, V, S: BuildHasher> OccupiedEntry<'a, K, V, S> {
     /// Gets a reference to the entry key
     ///
     /// # Examples
@@ -1128,7 +1128,7 @@ impl<'a, K: Hash + Eq, V, S: HashState> OccupiedEntry<'a, K, V, S> {
     }
 }
 
-impl<'a, K: 'a + Hash + Eq, V: 'a, S: HashState> VacantEntry<'a, K, V, S> {
+impl<'a, K: 'a + Hash + Eq, V: 'a, S: BuildHasher> VacantEntry<'a, K, V, S> {
     /// Gets a reference to the entry key
     ///
     /// # Examples
