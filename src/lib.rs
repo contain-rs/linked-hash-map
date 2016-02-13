@@ -28,6 +28,7 @@
 //! ```
 
 #![forbid(missing_docs)]
+#![cfg_attr(feature = "nightly", feature(hashmap_public_hasher))]
 #![cfg_attr(all(feature = "nightly", test), feature(test))]
 
 use std::borrow::Borrow;
@@ -611,12 +612,19 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     }
 }
 
-// FIXME: `HashMap` doesn't expose its hash state, so we cannot clone fully parameterized
-// `LinkedHashMap`s without cloning the original map and clearing it. For now, only
-// `LinkedHashMap<K, V>`s implement `Clone`.
+#[cfg(not(feature = "nightly"))]
 impl<K: Hash + Eq + Clone, V: Clone> Clone for LinkedHashMap<K, V> {
     fn clone(&self) -> Self {
         self.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<K: Hash + Eq + Clone, V: Clone, S: BuildHasher + Clone> Clone for LinkedHashMap<K, V, S> {
+    fn clone(&self) -> Self {
+        let mut map = Self::with_hash_state(self.map.hasher().clone());
+        map.extend(self.iter().map(|(k, v)| (k.clone(), v.clone())));
+        map
     }
 }
 
