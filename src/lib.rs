@@ -640,6 +640,16 @@ impl<K: Hash + Eq, V, S: BuildHasher> Extend<(K, V)> for LinkedHashMap<K, V, S> 
     }
 }
 
+impl<'a, K, V, S> Extend<(&'a K, &'a V)> for LinkedHashMap<K, V, S>
+    where K: 'a + Hash + Eq + Copy, V: 'a + Copy, S: BuildHasher,
+{
+    fn extend<I: IntoIterator<Item = (&'a K, &'a V)>>(&mut self, iter: I) {
+        for (&k, &v) in iter {
+            self.insert(k, v);
+        }
+    }
+}
+
 impl<K: Hash + Eq, V, S: BuildHasher + Default> iter::FromIterator<(K, V)> for LinkedHashMap<K, V, S> {
     fn from_iter<I: IntoIterator<Item=(K, V)>>(iter: I) -> Self {
         let iter = iter.into_iter();
