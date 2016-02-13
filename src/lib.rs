@@ -28,7 +28,7 @@
 //! ```
 
 #![forbid(missing_docs)]
-#![cfg_attr(test, feature(test))]
+#![cfg_attr(all(feature = "nightly", test), feature(test))]
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -877,7 +877,7 @@ impl<'a, K: Hash + Eq, V, S: BuildHasher> IntoIterator for &'a mut LinkedHashMap
     fn into_iter(self) -> IterMut<'a, K, V> { self.iter_mut() }
 }
 
-#[cfg(test)]
+#[cfg(all(feature = "nightly", test))]
 mod bench {
     extern crate test;
 
