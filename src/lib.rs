@@ -230,7 +230,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
         })
     }
 
-    /// Returns an iterator visiting all entries in order insertion.
+    /// Returns an iterator visiting all entries in insertion order.
     /// Iterator element type is `OccupiedEntry<K, V, S>`. Allows for removal
     /// as well as replacing the entry.
     ///
@@ -1029,7 +1029,7 @@ pub struct OccupiedEntry<'a, K: 'a, V: 'a, S: 'a = hash_map::RandomState> {
     marker: marker::PhantomData<&'a K>,
 }
 
-/// A view into a single empty location in a HashMap.
+/// A view into a single empty location in a LinkedHashMap.
 pub struct VacantEntry<'a, K: 'a, V: 'a, S: 'a = hash_map::RandomState> {
     key: K,
     map: &'a mut LinkedHashMap<K, V, S>,
