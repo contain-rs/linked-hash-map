@@ -1,12 +1,16 @@
 language: rust
-rust:
-    - nightly
 sudo: false
+matrix:
+    include:
+        - rust: beta
+        - rust: nightly
+          env: FEATURES="--features nightly"
 script:
-    - cargo build
-    - cargo test
-    - cargo doc --no-deps
+    - cargo build $FEATURES
+    - cargo test $FEATURES
+    - cargo doc --no-deps $FEATURES
 after_success: |
+    [ $TRAVIS_RUST_VERSION = nightly ] &&
     [ $TRAVIS_BRANCH = master ] &&
     [ $TRAVIS_PULL_REQUEST = false ] &&
     bash deploy-docs.sh

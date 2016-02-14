@@ -28,7 +28,8 @@
 //! ```
 
 #![forbid(missing_docs)]
-#![cfg_attr(test, feature(test))]
+#![cfg_attr(feature = "nightly", feature(hashmap_public_hasher))]
+#![cfg_attr(all(feature = "nightly", test), feature(test))]
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -611,12 +612,19 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     }
 }
 
-// FIXME: `HashMap` doesn't expose its hash state, so we cannot clone fully parameterized
-// `LinkedHashMap`s without cloning the original map and clearing it. For now, only
-// `LinkedHashMap<K, V>`s implement `Clone`.
+#[cfg(not(feature = "nightly"))]
 impl<K: Hash + Eq + Clone, V: Clone> Clone for LinkedHashMap<K, V> {
     fn clone(&self) -> Self {
         self.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<K: Hash + Eq + Clone, V: Clone, S: BuildHasher + Clone> Clone for LinkedHashMap<K, V, S> {
+    fn clone(&self) -> Self {
+        let mut map = Self::with_hash_state(self.map.hasher().clone());
+        map.extend(self.iter().map(|(k, v)| (k.clone(), v.clone())));
+        map
     }
 }
 
@@ -627,6 +635,16 @@ impl<K: Hash + Eq, V, S: BuildHasher + Default> Default for LinkedHashMap<K, V, 
 impl<K: Hash + Eq, V, S: BuildHasher> Extend<(K, V)> for LinkedHashMap<K, V, S> {
     fn extend<T: IntoIterator<Item=(K, V)>>(&mut self, iter: T) {
         for (k, v) in iter {
+            self.insert(k, v);
+        }
+    }
+}
+
+impl<'a, K, V, S> Extend<(&'a K, &'a V)> for LinkedHashMap<K, V, S>
+    where K: 'a + Hash + Eq + Copy, V: 'a + Copy, S: BuildHasher,
+{
+    fn extend<I: IntoIterator<Item = (&'a K, &'a V)>>(&mut self, iter: I) {
+        for (&k, &v) in iter {
             self.insert(k, v);
         }
     }
@@ -877,7 +895,7 @@ impl<'a, K: Hash + Eq, V, S: BuildHasher> IntoIterator for &'a mut LinkedHashMap
     fn into_iter(self) -> IterMut<'a, K, V> { self.iter_mut() }
 }
 
-#[cfg(test)]
+#[cfg(all(feature = "nightly", test))]
 mod bench {
     extern crate test;
 
