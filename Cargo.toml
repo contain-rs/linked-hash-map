@@ -17,3 +17,8 @@ readme = "README.md"
 
 [features]
 nightly = []
+serde_impl = ["serde", "serde_json"]
+
+[dependencies]
+serde = { version = "^0.7", optional = true }
+serde_json = { version = "^0.7", optional = true }
