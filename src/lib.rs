@@ -31,6 +31,10 @@
 #![cfg_attr(feature = "nightly", feature(hashmap_public_hasher))]
 #![cfg_attr(all(feature = "nightly", test), feature(test))]
 
+// Optional Serde support
+#[cfg(feature = "serde_impl")]
+mod serde;
+
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::hash_map::{self, HashMap};
