@@ -2,8 +2,6 @@ extern crate linked_hash_map;
 
 use linked_hash_map::LinkedHashMap;
 
-use std::collections::hash_map;
-
 fn assert_opt_eq<V: PartialEq>(opt: Option<&V>, v: V) {
     assert!(opt.is_some());
     assert!(opt.unwrap() == &v);
@@ -248,7 +246,7 @@ fn test_send_sync() {
     is_send_sync::<LinkedHashMap<u32, i32>>();
     is_send_sync::<linked_hash_map::Iter<u32, i32>>();
     is_send_sync::<linked_hash_map::IterMut<u32, i32>>();
-    is_send_sync::<linked_hash_map::IntoIter<u32, i32, hash_map::RandomState>>();
+    is_send_sync::<linked_hash_map::IntoIter<u32, i32>>();
     is_send_sync::<linked_hash_map::Keys<u32, i32>>();
     is_send_sync::<linked_hash_map::Values<u32, i32>>();
 }
