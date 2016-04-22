@@ -33,7 +33,7 @@
 
 // Optional Serde support
 #[cfg(feature = "serde_impl")]
-mod serde;
+pub mod serde;
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
