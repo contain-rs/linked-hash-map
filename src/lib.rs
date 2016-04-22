@@ -28,7 +28,6 @@
 //! ```
 
 #![forbid(missing_docs)]
-#![cfg_attr(feature = "nightly", feature(hashmap_public_hasher))]
 #![cfg_attr(all(feature = "nightly", test), feature(test))]
 
 // Optional Serde support
