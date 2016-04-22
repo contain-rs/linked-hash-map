@@ -57,7 +57,7 @@ struct LinkedHashMapEntry<K, V> {
 
 /// A linked hash map.
 pub struct LinkedHashMap<K, V, S = hash_map::RandomState> {
-    map: HashMap<KeyRef<K>, Box<LinkedHashMapEntry<K, V>>, S>,
+    map: HashMap<KeyRef<K>, *mut LinkedHashMapEntry<K, V>, S>,
     head: *mut LinkedHashMapEntry<K, V>,
     free: *mut LinkedHashMapEntry<K, V>,
 }
@@ -121,6 +121,16 @@ impl<K: Hash + Eq, V> LinkedHashMap<K, V> {
 }
 
 impl<K, V, S> LinkedHashMap<K, V, S> {
+    // Caller must check `!self.head.is_null()`
+    unsafe fn drop_entries(&mut self) {
+        let mut cur = (*self.head).next;
+        while cur != self.head {
+            let next = (*cur).next;
+            Box::from_raw(cur);
+            cur = next;
+        }
+    }
+
     fn clear_free_list(&mut self) {
         unsafe {
             let mut free = self.free;
@@ -135,7 +145,7 @@ impl<K, V, S> LinkedHashMap<K, V, S> {
 }
 
 impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
-    fn with_map(map: HashMap<KeyRef<K>, Box<LinkedHashMapEntry<K, V>>, S>) -> Self {
+    fn with_map(map: HashMap<KeyRef<K>, *mut LinkedHashMapEntry<K, V>, S>) -> Self {
         LinkedHashMap {
             map: map,
             head: ptr::null_mut(),
@@ -192,38 +202,36 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
                 (*self.head).prev = self.head;
             }
         }
-        let (node_ptr, node_opt, old_val) = match self.map.get_mut(&KeyRef{k: &k}) {
+        let (node, old_val) = match self.map.get(&KeyRef{k: &k}) {
             Some(node) => {
-                let old_val = mem::replace(&mut node.value, v);
-                let node_ptr: *mut LinkedHashMapEntry<K, V> = &mut **node;
-                (node_ptr, None, Some(old_val))
+                let old_val = unsafe { ptr::replace(&mut (**node).value, v) };
+                (*node, Some(old_val))
             }
             None => {
-                let mut node = if self.free.is_null() {
-                    Box::new(LinkedHashMapEntry::new(k, v))
+                let node = if self.free.is_null() {
+                    Box::into_raw(Box::new(LinkedHashMapEntry::new(k, v)))
                 } else {
                     // use a recycled box
                     unsafe {
                         let free = self.free;
                         self.free = (*free).next;
                         ptr::write(free, LinkedHashMapEntry::new(k, v));
-                        Box::from_raw(free)
+                        free
                     }
                 };
-                let node_ptr: *mut LinkedHashMapEntry<K, V> = &mut *node;
-                (node_ptr, Some(node), None)
+                (node, None)
             }
         };
-        match node_opt {
-            None => {
+        match old_val {
+            Some(_) => {
                 // Existing node, just update LRU position
-                self.detach(node_ptr);
-                self.attach(node_ptr);
+                self.detach(node);
+                self.attach(node);
             }
-            Some(node) => {
-                let keyref = unsafe { &(*node_ptr).key };
+            None => {
+                let keyref = unsafe { &(*node).key };
                 self.map.insert(KeyRef{k: keyref}, node);
-                self.attach(node_ptr);
+                self.attach(node);
             }
         }
         old_val
@@ -251,7 +259,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// assert_eq!(map.get(&2), Some(&"c"));
     /// ```
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V> where K: Borrow<Q>, Q: Eq + Hash {
-        self.map.get(Qey::from_ref(k)).map(|e| &e.value)
+        self.map.get(Qey::from_ref(k)).map(|e| unsafe { &(**e).value })
     }
 
     /// Returns the mutable reference corresponding to the key in the map.
@@ -269,7 +277,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// assert_eq!(map.get(&1), Some(&"c"));
     /// ```
     pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V> where K: Borrow<Q>, Q: Eq + Hash {
-        self.map.get_mut(Qey::from_ref(k)).map(|e| &mut e.value)
+        self.map.get(Qey::from_ref(k)).map(|e| unsafe { &mut (**e).value })
     }
 
     /// Returns the value corresponding to the key in the map.
@@ -292,11 +300,10 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// assert_eq!((&2, &"b"), map.iter().rev().next().unwrap());
     /// ```
     pub fn get_refresh<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V> where K: Borrow<Q>, Q: Eq + Hash {
-        let (value, node_ptr_opt) = match self.map.get_mut(Qey::from_ref(k)) {
+        let (value, node_ptr_opt) = match self.map.get(Qey::from_ref(k)) {
             None => (None, None),
             Some(node) => {
-                let node_ptr: *mut LinkedHashMapEntry<K, V> = &mut **node;
-                (Some(unsafe { &mut(*node_ptr).value }), Some(node_ptr))
+                (Some(unsafe { &mut (**node).value }), Some(*node))
             }
         };
         if let Some(node_ptr) = node_ptr_opt {
@@ -323,17 +330,15 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// ```
     pub fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V> where K: Borrow<Q>, Q: Eq + Hash {
         let removed = self.map.remove(Qey::from_ref(k));
-        removed.map(|mut node| {
-            let node_ptr: *mut LinkedHashMapEntry<K,V> = &mut *node;
-            self.detach(node_ptr);
+        removed.map(|node| {
+            self.detach(node);
             unsafe {
                 // add to free list
-                (*node_ptr).next = self.free;
-                self.free = node_ptr;
-                // forget the box but drop the key and return the value
-                mem::forget(node);
-                drop(ptr::read(&(*node_ptr).key));
-                ptr::read(&(*node_ptr).value)
+                (*node).next = self.free;
+                self.free = node;
+                // drop the key and return the value
+                drop(ptr::read(&(*node).key));
+                ptr::read(&(*node).value)
             }
         })
     }
@@ -373,7 +378,10 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
             self.detach(lru);
             return self.map
                 .remove(&KeyRef{k: unsafe { &(*lru).key }})
-                .map(|e| { let e = *e; (e.key, e.value) })
+                .map(|e| {
+                    let e = *unsafe { Box::from_raw(e) };
+                    (e.key, e.value)
+                })
         }
         None
     }
@@ -394,7 +402,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
         if self.len() > 0 {
             let lru = unsafe { (*self.head).prev };
             return self.map.get(&KeyRef{k: unsafe { &(*lru).key }})
-                .map(|e| (&e.key, &e.value))
+                .map(|e| unsafe { (&(**e).key, &(**e).value) })
         }
         None
     }
@@ -419,7 +427,10 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
             self.detach(mru);
             return self.map
                 .remove(&KeyRef{k: unsafe { &(*mru).key }})
-                .map(|e| { let e = *e; (e.key, e.value) })
+                .map(|e| {
+                    let e = *unsafe { Box::from_raw(e) };
+                    (e.key, e.value)
+                })
         }
         None
     }
@@ -440,7 +451,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
         if self.len() > 0 {
             let mru = unsafe { (*self.head).next };
             return self.map.get(&KeyRef{k: unsafe { &(*mru).key }})
-                .map(|e| (&e.key, &e.value))
+                .map(|e| unsafe { (&(**e).key, &(**e).value) })
         }
         None
     }
@@ -457,6 +468,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
         // update the guard node if present
         if ! self.head.is_null() {
             unsafe {
+                self.drop_entries();
                 (*self.head).prev = self.head;
                 (*self.head).next = self.head;
             }
@@ -720,12 +732,13 @@ unsafe impl<K: Sync, V: Sync, S: Sync> Sync for LinkedHashMap<K, V, S> {}
 
 impl<K, V, S> Drop for LinkedHashMap<K, V, S> {
     fn drop(&mut self) {
-        unsafe {
-            if ! self.head.is_null() {
+        if !self.head.is_null() {
+            unsafe {
+                self.drop_entries();
                 drop_empty_entry_box(self.head);
             }
-            self.clear_free_list();
         }
+        self.clear_free_list();
     }
 }
 
