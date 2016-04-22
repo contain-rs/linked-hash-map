@@ -747,6 +747,11 @@ pub struct IterMut<'a, K: 'a, V: 'a> {
     marker: marker::PhantomData<(&'a K, &'a mut V)>,
 }
 
+/// A consuming insertion-order iterator over a `LinkedHashMap`'s entries.
+pub struct IntoIter<K, V, S> {
+    map: LinkedHashMap<K, V, S>,
+}
+
 unsafe impl<'a, K, V> Send for Iter<'a, K, V> where K: Send, V: Send {}
 
 unsafe impl<'a, K, V> Send for IterMut<'a, K, V> where K: Send, V: Send {}
@@ -757,6 +762,14 @@ unsafe impl<'a, K, V> Sync for IterMut<'a, K, V> where K: Sync, V: Sync {}
 
 impl<'a, K, V> Clone for Iter<'a, K, V> {
     fn clone(&self) -> Self { Iter { ..*self } }
+}
+
+impl<K, V, S> Clone for IntoIter<K, V, S> where LinkedHashMap<K, V, S>: Clone {
+    fn clone(&self) -> Self {
+        IntoIter {
+            map: self.map.clone()
+        }
+    }
 }
 
 impl<'a, K, V> Iterator for Iter<'a, K, V> {
@@ -801,6 +814,19 @@ impl<'a, K, V> Iterator for IterMut<'a, K, V> {
     }
 }
 
+impl<K: Hash + Eq, V, S: BuildHasher> Iterator for IntoIter<K, V, S> {
+    type Item = (K, V);
+
+    fn next(&mut self) -> Option<(K, V)> {
+        self.map.pop_front()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let n = self.map.len();
+        (n, Some(n))
+    }
+}
+
 impl<'a, K, V> DoubleEndedIterator for Iter<'a, K, V> {
     fn next_back(&mut self) -> Option<(&'a K, &'a V)> {
         if self.head == self.tail {
@@ -831,12 +857,22 @@ impl<'a, K, V> DoubleEndedIterator for IterMut<'a, K, V> {
     }
 }
 
+impl<K: Hash + Eq, V, S: BuildHasher> DoubleEndedIterator for IntoIter<K, V, S> {
+    fn next_back(&mut self) -> Option<(K, V)> {
+        self.map.pop_back()
+    }
+}
+
 impl<'a, K, V> ExactSizeIterator for Iter<'a, K, V> {
     fn len(&self) -> usize { self.remaining }
 }
 
 impl<'a, K, V> ExactSizeIterator for IterMut<'a, K, V> {
     fn len(&self) -> usize { self.remaining }
+}
+
+impl<K: Hash + Eq, V, S: BuildHasher> ExactSizeIterator for IntoIter<K, V, S> {
+    fn len(&self) -> usize { self.map.len() }
 }
 
 /// An insertion-order iterator over a `LinkedHashMap`'s keys.
@@ -897,6 +933,15 @@ impl<'a, K: Hash + Eq, V, S: BuildHasher> IntoIterator for &'a mut LinkedHashMap
     type Item = (&'a K, &'a mut V);
     type IntoIter = IterMut<'a, K, V>;
     fn into_iter(self) -> IterMut<'a, K, V> { self.iter_mut() }
+}
+
+impl<K: Hash + Eq, V, S: BuildHasher> IntoIterator for LinkedHashMap<K, V, S> {
+    type Item = (K, V);
+    type IntoIter = IntoIter<K, V, S>;
+    fn into_iter(mut self) -> IntoIter<K, V, S> {
+        self.clear_free_list();
+        IntoIter { map: self }
+    }
 }
 
 #[cfg(all(feature = "nightly", test))]
