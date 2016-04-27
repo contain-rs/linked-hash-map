@@ -44,6 +44,7 @@ use std::marker;
 use std::mem;
 use std::ops::{Index, IndexMut};
 use std::ptr;
+use std::vec;
 
 struct KeyRef<K> { k: *const K }
 
@@ -746,6 +747,11 @@ pub struct IterMut<'a, K: 'a, V: 'a> {
     marker: marker::PhantomData<(&'a K, &'a mut V)>,
 }
 
+/// A consuming insertion-order iterator over a `LinkedHashMap`'s entries.
+pub struct IntoIter<K, V> {
+    iter: vec::IntoIter<(K, V)>,
+}
+
 unsafe impl<'a, K, V> Send for Iter<'a, K, V> where K: Send, V: Send {}
 
 unsafe impl<'a, K, V> Send for IterMut<'a, K, V> where K: Send, V: Send {}
@@ -756,6 +762,14 @@ unsafe impl<'a, K, V> Sync for IterMut<'a, K, V> where K: Sync, V: Sync {}
 
 impl<'a, K, V> Clone for Iter<'a, K, V> {
     fn clone(&self) -> Self { Iter { ..*self } }
+}
+
+impl<K, V> Clone for IntoIter<K, V> where (K, V): Clone {
+    fn clone(&self) -> Self {
+        IntoIter {
+            iter: self.iter.clone()
+        }
+    }
 }
 
 impl<'a, K, V> Iterator for Iter<'a, K, V> {
@@ -800,6 +814,18 @@ impl<'a, K, V> Iterator for IterMut<'a, K, V> {
     }
 }
 
+impl<K: Hash + Eq, V> Iterator for IntoIter<K, V> {
+    type Item = (K, V);
+
+    fn next(&mut self) -> Option<(K, V)> {
+        self.iter.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
 impl<'a, K, V> DoubleEndedIterator for Iter<'a, K, V> {
     fn next_back(&mut self) -> Option<(&'a K, &'a V)> {
         if self.head == self.tail {
@@ -830,12 +856,22 @@ impl<'a, K, V> DoubleEndedIterator for IterMut<'a, K, V> {
     }
 }
 
+impl<K: Hash + Eq, V> DoubleEndedIterator for IntoIter<K, V> {
+    fn next_back(&mut self) -> Option<(K, V)> {
+        self.iter.next_back()
+    }
+}
+
 impl<'a, K, V> ExactSizeIterator for Iter<'a, K, V> {
     fn len(&self) -> usize { self.remaining }
 }
 
 impl<'a, K, V> ExactSizeIterator for IterMut<'a, K, V> {
     fn len(&self) -> usize { self.remaining }
+}
+
+impl<K: Hash + Eq, V> ExactSizeIterator for IntoIter<K, V> {
+    fn len(&self) -> usize { self.iter.len() }
 }
 
 /// An insertion-order iterator over a `LinkedHashMap`'s keys.
@@ -896,6 +932,18 @@ impl<'a, K: Hash + Eq, V, S: BuildHasher> IntoIterator for &'a mut LinkedHashMap
     type Item = (&'a K, &'a mut V);
     type IntoIter = IterMut<'a, K, V>;
     fn into_iter(self) -> IterMut<'a, K, V> { self.iter_mut() }
+}
+
+impl<K: Hash + Eq, V, S: BuildHasher> IntoIterator for LinkedHashMap<K, V, S> {
+    type Item = (K, V);
+    type IntoIter = IntoIter<K, V>;
+    fn into_iter(mut self) -> IntoIter<K, V> {
+        let mut v = vec![];
+        while let Some(entry) = self.pop_front() {
+            v.push(entry);
+        }
+        IntoIter { iter: v.into_iter() }
+    }
 }
 
 #[cfg(all(feature = "nightly", test))]

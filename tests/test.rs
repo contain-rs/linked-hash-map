@@ -178,6 +178,24 @@ fn test_iter_mut() {
 }
 
 #[test]
+fn test_consuming_iter() {
+    let map = {
+        let mut map = LinkedHashMap::new();
+        map.insert("a", 10);
+        map.insert("c", 30);
+        map.insert("b", 20);
+        map
+    };
+
+    let mut iter = map.into_iter();
+    assert_eq!(Some(("a", 10)), iter.next());
+    assert_eq!(Some(("b", 20)), iter.next_back());
+    assert_eq!(1, iter.len());
+    assert_eq!(Some(("c", 30)), iter.next());
+    assert_eq!(None, iter.next());
+}
+
+#[test]
 fn test_borrow() {
     #[derive(PartialEq, Eq, Hash)] struct Foo(Bar);
     #[derive(PartialEq, Eq, Hash)] struct Bar(i32);
@@ -228,6 +246,7 @@ fn test_send_sync() {
     is_send_sync::<LinkedHashMap<u32, i32>>();
     is_send_sync::<linked_hash_map::Iter<u32, i32>>();
     is_send_sync::<linked_hash_map::IterMut<u32, i32>>();
+    is_send_sync::<linked_hash_map::IntoIter<u32, i32>>();
     is_send_sync::<linked_hash_map::Keys<u32, i32>>();
     is_send_sync::<linked_hash_map::Values<u32, i32>>();
 }
