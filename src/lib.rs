@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! A HashMap wrapper that holds key-value pairs in insertion order.
+//! A `HashMap` wrapper that holds key-value pairs in insertion order.
 //!
 //! # Examples
 //!
@@ -28,12 +28,15 @@
 //! ```
 
 #![forbid(missing_docs)]
-#![cfg_attr(feature = "nightly", feature(hashmap_public_hasher))]
 #![cfg_attr(all(feature = "nightly", test), feature(test))]
+
+#![cfg_attr(feature = "clippy", feature(plugin))]
+#![cfg_attr(feature = "clippy", plugin(clippy))]
+#![cfg_attr(feature = "clippy", deny(clippy))]
 
 // Optional Serde support
 #[cfg(feature = "serde_impl")]
-mod serde;
+pub mod serde;
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -310,7 +313,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
             self.detach(node_ptr);
             self.attach(node_ptr);
         }
-        return value;
+        value
     }
 
     /// Removes and returns the value corresponding to the key from the map.
@@ -373,17 +376,17 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// ```
     #[inline]
     pub fn pop_front(&mut self) -> Option<(K, V)> {
-        if self.len() > 0 {
-            let lru = unsafe { (*self.head).prev };
-            self.detach(lru);
-            return self.map
-                .remove(&KeyRef{k: unsafe { &(*lru).key }})
-                .map(|e| {
-                    let e = *unsafe { Box::from_raw(e) };
-                    (e.key, e.value)
-                })
+        if self.is_empty() {
+            return None
         }
-        None
+        let lru = unsafe { (*self.head).prev };
+        self.detach(lru);
+        self.map
+            .remove(&KeyRef{k: unsafe { &(*lru).key }})
+            .map(|e| {
+                let e = *unsafe { Box::from_raw(e) };
+                (e.key, e.value)
+            })
     }
 
     /// Gets the first entry.
@@ -399,12 +402,13 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// ```
     #[inline]
     pub fn front(&self) -> Option<(&K, &V)> {
-        if self.len() > 0 {
-            let lru = unsafe { (*self.head).prev };
-            return self.map.get(&KeyRef{k: unsafe { &(*lru).key }})
-                .map(|e| unsafe { (&(**e).key, &(**e).value) })
+        if self.is_empty() {
+            return None
         }
-        None
+        let lru = unsafe { (*self.head).prev };
+        self.map
+            .get(&KeyRef{k: unsafe { &(*lru).key }})
+            .map(|e| unsafe { (&(**e).key, &(**e).value) })
     }
 
     /// Removes the last entry.
@@ -422,17 +426,17 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// ```
     #[inline]
     pub fn pop_back(&mut self) -> Option<(K, V)> {
-        if self.len() > 0 {
-            let mru = unsafe { (*self.head).next };
-            self.detach(mru);
-            return self.map
-                .remove(&KeyRef{k: unsafe { &(*mru).key }})
-                .map(|e| {
-                    let e = *unsafe { Box::from_raw(e) };
-                    (e.key, e.value)
-                })
+        if self.is_empty() {
+            return None
         }
-        None
+        let mru = unsafe { (*self.head).next };
+        self.detach(mru);
+        self.map
+            .remove(&KeyRef{k: unsafe { &(*mru).key }})
+            .map(|e| {
+                let e = *unsafe { Box::from_raw(e) };
+                (e.key, e.value)
+            })
     }
 
     /// Gets the last entry.
@@ -448,12 +452,13 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// ```
     #[inline]
     pub fn back(&mut self) -> Option<(&K, &V)> {
-        if self.len() > 0 {
-            let mru = unsafe { (*self.head).next };
-            return self.map.get(&KeyRef{k: unsafe { &(*mru).key }})
-                .map(|e| unsafe { (&(**e).key, &(**e).value) })
+        if self.is_empty() {
+            return None
         }
-        None
+        let mru = unsafe { (*self.head).next };
+        self.map
+            .get(&KeyRef{k: unsafe { &(*mru).key }})
+            .map(|e| unsafe { (&(**e).key, &(**e).value) })
     }
 
     /// Returns the number of key-value pairs in the map.
@@ -494,10 +499,10 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// assert_eq!(None, iter.next());
     /// ```
     pub fn iter(&self) -> Iter<K, V> {
-        let head = if ! self.head.is_null() {
-            unsafe { (*self.head).prev }
-        } else {
+        let head = if self.head.is_null() {
             ptr::null_mut()
+        } else {
+            unsafe { (*self.head).prev }
         };
         Iter {
             head: head,
@@ -528,10 +533,10 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// assert_eq!(&17, map.get(&"a").unwrap());
     /// ```
     pub fn iter_mut(&mut self) -> IterMut<K, V> {
-        let head = if ! self.head.is_null() {
-            unsafe { (*self.head).prev }
-        } else {
+        let head = if self.head.is_null() {
             ptr::null_mut()
+        } else {
+            unsafe { (*self.head).prev }
         };
         IterMut {
             head: head,
@@ -558,6 +563,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// assert_eq!(&'b', keys.next().unwrap());
     /// assert_eq!(None, keys.next());
     /// ```
+    #[cfg_attr(feature = "clippy", allow(needless_lifetimes))] // false positive
     pub fn keys<'a>(&'a self) -> Keys<'a, K, V> {
         fn first<A, B>((a, _): (A, B)) -> A { a }
         let first: fn((&'a K, &'a V)) -> &'a K = first; // coerce to fn ptr
@@ -582,6 +588,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// assert_eq!(&20, values.next().unwrap());
     /// assert_eq!(None, values.next());
     /// ```
+    #[cfg_attr(feature = "clippy", allow(needless_lifetimes))] // false positive
     pub fn values<'a>(&'a self) -> Values<'a, K, V> {
         fn second<A, B>((_, b): (A, B)) -> B { b }
         let second: fn((&'a K, &'a V)) -> &'a V = second; // coerce to fn ptr
@@ -822,8 +829,7 @@ impl<'a, K, V> DoubleEndedIterator for Iter<'a, K, V> {
             self.remaining -= 1;
             unsafe {
                 self.tail = (*self.tail).next;
-                let r = Some((&(*self.tail).key, &(*self.tail).value));
-                r
+                Some((&(*self.tail).key, &(*self.tail).value))
             }
         }
     }
@@ -837,8 +843,7 @@ impl<'a, K, V> DoubleEndedIterator for IterMut<'a, K, V> {
             self.remaining -= 1;
             unsafe {
                 self.tail = (*self.tail).next;
-                let r = Some((&(*self.tail).key, &mut (*self.tail).value));
-                r
+                Some((&(*self.tail).key, &mut (*self.tail).value))
             }
         }
     }
@@ -854,6 +859,7 @@ impl<'a, K, V> ExactSizeIterator for IterMut<'a, K, V> {
 
 /// An insertion-order iterator over a `LinkedHashMap`'s keys.
 pub struct Keys<'a, K: 'a, V: 'a> {
+    #[cfg_attr(feature = "clippy", allow(type_complexity))]
     inner: iter::Map<Iter<'a, K, V>, fn((&'a K, &'a V)) -> &'a K>
 }
 
@@ -878,6 +884,7 @@ impl<'a, K, V> ExactSizeIterator for Keys<'a, K, V> {
 
 /// An insertion-order iterator over a `LinkedHashMap`'s values.
 pub struct Values<'a, K: 'a, V: 'a> {
+    #[cfg_attr(feature = "clippy", allow(type_complexity))]
     inner: iter::Map<Iter<'a, K, V>, fn((&'a K, &'a V)) -> &'a V>
 }
 
