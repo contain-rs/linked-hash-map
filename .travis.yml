@@ -5,7 +5,7 @@ matrix:
         - rust: beta
           env: FEATURES="serde_impl"
         - rust: nightly
-          env: FEATURES="serde_impl nightly"
+          env: FEATURES="serde_impl nightly clippy"
 script:
     - cargo build --features "$FEATURES"
     - cargo test --features "$FEATURES"
