@@ -51,18 +51,18 @@ use std::ptr;
 
 struct KeyRef<K> { k: *const K }
 
-struct LinkedHashMapEntry<K, V> {
-    next: *mut LinkedHashMapEntry<K, V>,
-    prev: *mut LinkedHashMapEntry<K, V>,
+struct Node<K, V> {
+    next: *mut Node<K, V>,
+    prev: *mut Node<K, V>,
     key: K,
     value: V,
 }
 
 /// A linked hash map.
 pub struct LinkedHashMap<K, V, S = hash_map::RandomState> {
-    map: HashMap<KeyRef<K>, *mut LinkedHashMapEntry<K, V>, S>,
-    head: *mut LinkedHashMapEntry<K, V>,
-    free: *mut LinkedHashMapEntry<K, V>,
+    map: HashMap<KeyRef<K>, *mut Node<K, V>, S>,
+    head: *mut Node<K, V>,
+    free: *mut Node<K, V>,
 }
 
 impl<K: Hash> Hash for KeyRef<K> {
@@ -95,9 +95,9 @@ impl<K, Q: ?Sized> Borrow<Qey<Q>> for KeyRef<K> where K: Borrow<Q> {
     }
 }
 
-impl<K, V> LinkedHashMapEntry<K, V> {
+impl<K, V> Node<K, V> {
     fn new(k: K, v: V) -> Self {
-        LinkedHashMapEntry {
+        Node {
             key: k,
             value: v,
             next: ptr::null_mut(),
@@ -106,9 +106,9 @@ impl<K, V> LinkedHashMapEntry<K, V> {
     }
 }
 
-unsafe fn drop_empty_entry_box<K, V>(the_box: *mut LinkedHashMapEntry<K, V>) {
+unsafe fn drop_empty_entry_box<K, V>(the_box: *mut Node<K, V>) {
     // Prevent compiler from trying to drop the un-initialized key and values in the node.
-    let LinkedHashMapEntry { key, value, .. } = *Box::from_raw(the_box);
+    let Node { key, value, .. } = *Box::from_raw(the_box);
     mem::forget(key);
     mem::forget(value);
 }
@@ -148,7 +148,7 @@ impl<K, V, S> LinkedHashMap<K, V, S> {
 }
 
 impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
-    fn with_map(map: HashMap<KeyRef<K>, *mut LinkedHashMapEntry<K, V>, S>) -> Self {
+    fn with_map(map: HashMap<KeyRef<K>, *mut Node<K, V>, S>) -> Self {
         LinkedHashMap {
             map: map,
             head: ptr::null_mut(),
@@ -212,13 +212,13 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
             }
             None => {
                 let node = if self.free.is_null() {
-                    Box::into_raw(Box::new(LinkedHashMapEntry::new(k, v)))
+                    Box::into_raw(Box::new(Node::new(k, v)))
                 } else {
                     // use a recycled box
                     unsafe {
                         let free = self.free;
                         self.free = (*free).next;
-                        ptr::write(free, LinkedHashMapEntry::new(k, v));
+                        ptr::write(free, Node::new(k, v));
                         free
                     }
                 };
@@ -617,7 +617,7 @@ impl<'a, K, V, S, Q: ?Sized> IndexMut<&'a Q> for LinkedHashMap<K, V, S>
 
 impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     #[inline]
-    fn detach(&mut self, node: *mut LinkedHashMapEntry<K, V>) {
+    fn detach(&mut self, node: *mut Node<K, V>) {
         unsafe {
             (*(*node).prev).next = (*node).next;
             (*(*node).next).prev = (*node).prev;
@@ -625,7 +625,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     }
 
     #[inline]
-    fn attach(&mut self, node: *mut LinkedHashMapEntry<K, V>) {
+    fn attach(&mut self, node: *mut Node<K, V>) {
         unsafe {
             (*node).next = (*self.head).next;
             (*node).prev = self.head;
@@ -752,8 +752,8 @@ impl<K, V, S> Drop for LinkedHashMap<K, V, S> {
 /// An insertion-order iterator over a `LinkedHashMap`'s entries, with immutable references to the
 /// values.
 pub struct Iter<'a, K: 'a, V: 'a> {
-    head: *const LinkedHashMapEntry<K, V>,
-    tail: *const LinkedHashMapEntry<K, V>,
+    head: *const Node<K, V>,
+    tail: *const Node<K, V>,
     remaining: usize,
     marker: marker::PhantomData<(&'a K, &'a V)>,
 }
@@ -761,16 +761,16 @@ pub struct Iter<'a, K: 'a, V: 'a> {
 /// An insertion-order iterator over a `LinkedHashMap`'s entries, with mutable references to the
 /// values.
 pub struct IterMut<'a, K: 'a, V: 'a> {
-    head: *mut LinkedHashMapEntry<K, V>,
-    tail: *mut LinkedHashMapEntry<K, V>,
+    head: *mut Node<K, V>,
+    tail: *mut Node<K, V>,
     remaining: usize,
     marker: marker::PhantomData<(&'a K, &'a mut V)>,
 }
 
 /// A consuming insertion-order iterator over a `LinkedHashMap`'s entries.
 pub struct IntoIter<K, V> {
-    head: *mut LinkedHashMapEntry<K, V>,
-    tail: *mut LinkedHashMapEntry<K, V>,
+    head: *mut Node<K, V>,
+    tail: *mut Node<K, V>,
     remaining: usize,
     marker: marker::PhantomData<(K, V)>,
 }
@@ -797,10 +797,10 @@ impl<K, V> Clone for IntoIter<K, V> where K: Clone, V: Clone {
             return IntoIter { ..*self }
         }
 
-        fn clone_entry<K, V>(e: *mut LinkedHashMapEntry<K, V>) -> *mut LinkedHashMapEntry<K, V>
+        fn clone_entry<K, V>(e: *mut Node<K, V>) -> *mut Node<K, V>
             where K: Clone, V: Clone,
         {
-            Box::into_raw(Box::new(LinkedHashMapEntry::new(
+            Box::into_raw(Box::new(Node::new(
                 unsafe { (*e).key.clone() }, unsafe { (*e).value.clone() }
             )))
         }
