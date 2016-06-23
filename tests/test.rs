@@ -223,6 +223,36 @@ fn test_consuming_iter_with_free_list() {
 }
 
 #[test]
+fn test_into_iter_drop() {
+    struct Counter<'a>(&'a mut usize);
+
+    impl<'a> Drop for Counter<'a> {
+        fn drop(&mut self) {
+            *self.0 += 1;
+        }
+    }
+
+    let mut a = 0;
+    let mut b = 0;
+    let mut c = 0;
+
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("a", Counter(&mut a));
+        map.insert("b", Counter(&mut b));
+        map.insert("c", Counter(&mut c));
+
+        let mut iter = map.into_iter();
+        iter.next();
+        iter.next_back();
+    }
+
+    assert_eq!(a, 1);
+    assert_eq!(b, 1);
+    assert_eq!(c, 1);
+}
+
+#[test]
 fn test_borrow() {
     #[derive(PartialEq, Eq, Hash)] struct Foo(Bar);
     #[derive(PartialEq, Eq, Hash)] struct Bar(i32);
