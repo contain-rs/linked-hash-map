@@ -106,7 +106,7 @@ impl<K, V> Node<K, V> {
     }
 }
 
-unsafe fn drop_empty_entry_box<K, V>(the_box: *mut Node<K, V>) {
+unsafe fn drop_empty_node<K, V>(the_box: *mut Node<K, V>) {
     // Prevent compiler from trying to drop the un-initialized key and values in the node.
     let Node { key, value, .. } = *Box::from_raw(the_box);
     mem::forget(key);
@@ -139,7 +139,7 @@ impl<K, V, S> LinkedHashMap<K, V, S> {
             let mut free = self.free;
             while ! free.is_null() {
                 let next_free = (*free).next;
-                drop_empty_entry_box(free);
+                drop_empty_node(free);
                 free = next_free;
             }
             self.free = ptr::null_mut();
@@ -742,7 +742,7 @@ impl<K, V, S> Drop for LinkedHashMap<K, V, S> {
         if !self.head.is_null() {
             unsafe {
                 self.drop_entries();
-                drop_empty_entry_box(self.head);
+                drop_empty_node(self.head);
             }
         }
         self.clear_free_list();
@@ -797,7 +797,7 @@ impl<K, V> Clone for IntoIter<K, V> where K: Clone, V: Clone {
             return IntoIter { ..*self }
         }
 
-        fn clone_entry<K, V>(e: *mut Node<K, V>) -> *mut Node<K, V>
+        fn clone_node<K, V>(e: *mut Node<K, V>) -> *mut Node<K, V>
             where K: Clone, V: Clone,
         {
             Box::into_raw(Box::new(Node::new(
@@ -806,11 +806,11 @@ impl<K, V> Clone for IntoIter<K, V> where K: Clone, V: Clone {
         }
 
         let mut cur = self.head;
-        let head = clone_entry(cur);
+        let head = clone_node(cur);
         let mut tail = head;
         for _ in 1..self.remaining {
             unsafe {
-                (*tail).prev = clone_entry((*cur).prev);
+                (*tail).prev = clone_node((*cur).prev);
                 (*(*tail).prev).next = tail;
                 tail = (*tail).prev;
                 cur = (*cur).prev;
@@ -1030,7 +1030,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> IntoIterator for LinkedHashMap<K, V, S> {
         let len = self.len();
 
         if !self.head.is_null() {
-            unsafe { drop_empty_entry_box(self.head) }
+            unsafe { drop_empty_node(self.head) }
         }
         self.clear_free_list();
         // drop the HashMap but not the LinkedHashMap
