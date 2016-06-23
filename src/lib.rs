@@ -1032,7 +1032,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> IntoIterator for LinkedHashMap<K, V, S> {
         unsafe { drop_empty_entry_box(self.head) }
         self.clear_free_list();
         // drop the HashMap but not the LinkedHashMap
-        mem::replace(&mut self.map, unsafe { mem::uninitialized() });
+        self.map = unsafe { mem::uninitialized() };
         mem::forget(self);
 
         IntoIter {
