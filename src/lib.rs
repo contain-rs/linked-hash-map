@@ -1029,7 +1029,9 @@ impl<K: Hash + Eq, V, S: BuildHasher> IntoIterator for LinkedHashMap<K, V, S> {
         };
         let len = self.len();
 
-        unsafe { drop_empty_entry_box(self.head) }
+        if !self.head.is_null() {
+            unsafe { drop_empty_entry_box(self.head) }
+        }
         self.clear_free_list();
         // drop the HashMap but not the LinkedHashMap
         self.map = unsafe { mem::uninitialized() };

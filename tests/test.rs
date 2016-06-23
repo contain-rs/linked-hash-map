@@ -200,6 +200,29 @@ fn test_consuming_iter() {
 }
 
 #[test]
+fn test_consuming_iter_empty() {
+    let map = LinkedHashMap::<&str, i32>::new();
+    let mut iter = map.into_iter();
+    assert_eq!(None, iter.next());
+    let mut clone = iter.clone();
+    assert_eq!(None, clone.next());
+}
+
+#[test]
+fn test_consuming_iter_with_free_list() {
+    let mut map = LinkedHashMap::new();
+    map.insert("a", 10);
+    map.insert("c", 30);
+    map.insert("b", 20);
+    map.remove("a");
+    map.remove("b");
+
+    let mut iter = map.into_iter();
+    assert_eq!(Some(("c", 30)), iter.next());
+    assert_eq!(None, iter.next());
+}
+
+#[test]
 fn test_borrow() {
     #[derive(PartialEq, Eq, Hash)] struct Foo(Bar);
     #[derive(PartialEq, Eq, Hash)] struct Bar(i32);
