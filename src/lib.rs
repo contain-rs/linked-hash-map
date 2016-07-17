@@ -563,12 +563,8 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// assert_eq!(&'b', keys.next().unwrap());
     /// assert_eq!(None, keys.next());
     /// ```
-    #[cfg_attr(feature = "clippy", allow(needless_lifetimes))] // false positive
-    pub fn keys<'a>(&'a self) -> Keys<'a, K, V> {
-        fn first<A, B>((a, _): (A, B)) -> A { a }
-        let first: fn((&'a K, &'a V)) -> &'a K = first; // coerce to fn ptr
-
-        Keys { inner: self.iter().map(first) }
+    pub fn keys(&self) -> Keys<K, V> {
+        Keys { inner: self.iter() }
     }
 
     /// Returns a double-ended iterator visiting all values in order of insertion.
@@ -588,12 +584,8 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// assert_eq!(&20, values.next().unwrap());
     /// assert_eq!(None, values.next());
     /// ```
-    #[cfg_attr(feature = "clippy", allow(needless_lifetimes))] // false positive
-    pub fn values<'a>(&'a self) -> Values<'a, K, V> {
-        fn second<A, B>((_, b): (A, B)) -> B { b }
-        let second: fn((&'a K, &'a V)) -> &'a V = second; // coerce to fn ptr
-
-        Values { inner: self.iter().map(second) }
+    pub fn values(&self) -> Values<K, V> {
+        Values { inner: self.iter() }
     }
 }
 
@@ -950,8 +942,7 @@ impl<K, V> Drop for IntoIter<K, V> {
 
 /// An insertion-order iterator over a `LinkedHashMap`'s keys.
 pub struct Keys<'a, K: 'a, V: 'a> {
-    #[cfg_attr(feature = "clippy", allow(type_complexity))]
-    inner: iter::Map<Iter<'a, K, V>, fn((&'a K, &'a V)) -> &'a K>
+    inner: Iter<'a, K, V>,
 }
 
 impl<'a, K, V> Clone for Keys<'a, K, V> {
@@ -961,12 +952,12 @@ impl<'a, K, V> Clone for Keys<'a, K, V> {
 impl<'a, K, V> Iterator for Keys<'a, K, V> {
     type Item = &'a K;
 
-    #[inline] fn next(&mut self) -> Option<(&'a K)> { self.inner.next() }
+    #[inline] fn next(&mut self) -> Option<&'a K> { self.inner.next().map(|e| e.0) }
     #[inline] fn size_hint(&self) -> (usize, Option<usize>) { self.inner.size_hint() }
 }
 
 impl<'a, K, V> DoubleEndedIterator for Keys<'a, K, V> {
-    #[inline] fn next_back(&mut self) -> Option<(&'a K)> { self.inner.next_back() }
+    #[inline] fn next_back(&mut self) -> Option<&'a K> { self.inner.next_back().map(|e| e.0) }
 }
 
 impl<'a, K, V> ExactSizeIterator for Keys<'a, K, V> {
@@ -975,8 +966,7 @@ impl<'a, K, V> ExactSizeIterator for Keys<'a, K, V> {
 
 /// An insertion-order iterator over a `LinkedHashMap`'s values.
 pub struct Values<'a, K: 'a, V: 'a> {
-    #[cfg_attr(feature = "clippy", allow(type_complexity))]
-    inner: iter::Map<Iter<'a, K, V>, fn((&'a K, &'a V)) -> &'a V>
+    inner: Iter<'a, K, V>,
 }
 
 impl<'a, K, V> Clone for Values<'a, K, V> {
@@ -986,12 +976,12 @@ impl<'a, K, V> Clone for Values<'a, K, V> {
 impl<'a, K, V> Iterator for Values<'a, K, V> {
     type Item = &'a V;
 
-    #[inline] fn next(&mut self) -> Option<(&'a V)> { self.inner.next() }
+    #[inline] fn next(&mut self) -> Option<&'a V> { self.inner.next().map(|e| e.1) }
     #[inline] fn size_hint(&self) -> (usize, Option<usize>) { self.inner.size_hint() }
 }
 
 impl<'a, K, V> DoubleEndedIterator for Values<'a, K, V> {
-    #[inline] fn next_back(&mut self) -> Option<(&'a V)> { self.inner.next_back() }
+    #[inline] fn next_back(&mut self) -> Option<&'a V> { self.inner.next_back().map(|e| e.1) }
 }
 
 impl<'a, K, V> ExactSizeIterator for Values<'a, K, V> {
