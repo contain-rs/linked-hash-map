@@ -860,7 +860,7 @@ impl<'a, K, V> Iterator for IterMut<'a, K, V> {
     }
 }
 
-impl<K: Hash + Eq, V> Iterator for IntoIter<K, V> {
+impl<K, V> Iterator for IntoIter<K, V> {
     type Item = (K, V);
 
     fn next(&mut self) -> Option<(K, V)> {
@@ -909,7 +909,7 @@ impl<'a, K, V> DoubleEndedIterator for IterMut<'a, K, V> {
     }
 }
 
-impl<K: Hash + Eq, V> DoubleEndedIterator for IntoIter<K, V> {
+impl<K, V> DoubleEndedIterator for IntoIter<K, V> {
     fn next_back(&mut self) -> Option<(K, V)> {
         if self.remaining == 0 {
             return None
