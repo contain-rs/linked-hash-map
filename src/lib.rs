@@ -635,14 +635,6 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     }
 }
 
-#[cfg(not(feature = "nightly"))]
-impl<K: Hash + Eq + Clone, V: Clone> Clone for LinkedHashMap<K, V> {
-    fn clone(&self) -> Self {
-        self.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
-    }
-}
-
-#[cfg(feature = "nightly")]
 impl<K: Hash + Eq + Clone, V: Clone, S: BuildHasher + Clone> Clone for LinkedHashMap<K, V, S> {
     fn clone(&self) -> Self {
         let mut map = Self::with_hash_state(self.map.hasher().clone());
