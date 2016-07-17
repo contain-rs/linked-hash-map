@@ -156,14 +156,14 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
         }
     }
 
-    /// Creates an empty linked hash map with the given initial hash state.
-    pub fn with_hash_state(hash_state: S) -> Self {
-        Self::with_map(HashMap::with_hasher(hash_state))
+    /// Creates an empty linked hash map with the given initial hash builder.
+    pub fn with_hasher(hash_builder: S) -> Self {
+        Self::with_map(HashMap::with_hasher(hash_builder))
     }
 
-    /// Creates an empty linked hash map with the given initial capacity and hash state.
-    pub fn with_capacity_and_hash_state(capacity: usize, hash_state: S) -> Self {
-        Self::with_map(HashMap::with_capacity_and_hasher(capacity, hash_state))
+    /// Creates an empty linked hash map with the given initial capacity and hash builder.
+    pub fn with_capacity_and_hasher(capacity: usize, hash_builder: S) -> Self {
+        Self::with_map(HashMap::with_capacity_and_hasher(capacity, hash_builder))
     }
 
     /// Reserves capacity for at least `additional` more elements to be inserted into the map. The
@@ -467,6 +467,11 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// Returns whether the map is currently empty.
     pub fn is_empty(&self) -> bool { self.len() == 0 }
 
+    /// Returns a reference to the map's hasher.
+    pub fn hasher(&self) -> &S {
+        self.map.hasher()
+    }
+
     /// Clears the map of all key-value pairs.
     pub fn clear(&mut self) {
         self.map.clear();
@@ -629,18 +634,18 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
 
 impl<K: Hash + Eq + Clone, V: Clone, S: BuildHasher + Clone> Clone for LinkedHashMap<K, V, S> {
     fn clone(&self) -> Self {
-        let mut map = Self::with_hash_state(self.map.hasher().clone());
+        let mut map = Self::with_hasher(self.map.hasher().clone());
         map.extend(self.iter().map(|(k, v)| (k.clone(), v.clone())));
         map
     }
 }
 
 impl<K: Hash + Eq, V, S: BuildHasher + Default> Default for LinkedHashMap<K, V, S> {
-    fn default() -> Self { LinkedHashMap::with_hash_state(Default::default()) }
+    fn default() -> Self { Self::with_hasher(S::default()) }
 }
 
 impl<K: Hash + Eq, V, S: BuildHasher> Extend<(K, V)> for LinkedHashMap<K, V, S> {
-    fn extend<T: IntoIterator<Item=(K, V)>>(&mut self, iter: T) {
+    fn extend<I: IntoIterator<Item=(K, V)>>(&mut self, iter: I) {
         for (k, v) in iter {
             self.insert(k, v);
         }
@@ -660,7 +665,7 @@ impl<'a, K, V, S> Extend<(&'a K, &'a V)> for LinkedHashMap<K, V, S>
 impl<K: Hash + Eq, V, S: BuildHasher + Default> iter::FromIterator<(K, V)> for LinkedHashMap<K, V, S> {
     fn from_iter<I: IntoIterator<Item=(K, V)>>(iter: I) -> Self {
         let iter = iter.into_iter();
-        let mut map = Self::with_capacity_and_hash_state(iter.size_hint().0, Default::default());
+        let mut map = Self::with_capacity_and_hasher(iter.size_hint().0, S::default());
         map.extend(iter);
         map
     }
