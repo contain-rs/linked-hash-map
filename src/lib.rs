@@ -929,7 +929,7 @@ impl<'a, K, V> ExactSizeIterator for IterMut<'a, K, V> {
     fn len(&self) -> usize { self.remaining }
 }
 
-impl<K: Hash + Eq, V> ExactSizeIterator for IntoIter<K, V> {
+impl<K, V> ExactSizeIterator for IntoIter<K, V> {
     fn len(&self) -> usize { self.remaining }
 }
 
