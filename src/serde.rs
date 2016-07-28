@@ -15,7 +15,6 @@ use std::hash::{BuildHasher, Hash};
 use super::LinkedHashMap;
 
 use self::serde::{Serialize, Serializer, Deserialize, Deserializer};
-use self::serde::ser::impls::MapIteratorVisitor;
 use self::serde::de::{Visitor, MapVisitor, Error};
 
 impl<K, V, S> Serialize for LinkedHashMap<K, V, S>
@@ -27,7 +26,12 @@ impl<K, V, S> Serialize for LinkedHashMap<K, V, S>
     fn serialize<T>(&self, serializer: &mut T) -> Result<(), T::Error>
         where T: Serializer,
     {
-        serializer.serialize_map(MapIteratorVisitor::new(self.iter(), Some(self.len())))
+        let mut state = try!(serializer.serialize_map(Some(self.len())));
+        for (k, v) in self {
+            try!(serializer.serialize_map_key(&mut state, k));
+            try!(serializer.serialize_map_value(&mut state, v));
+        }
+        serializer.serialize_map_end(state)
     }
 }
 
