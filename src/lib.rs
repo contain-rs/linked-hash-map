@@ -606,15 +606,15 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// map.insert('c', 30);
     /// map.insert('d', 40);
     ///
-    /// map.swap('a', 'c');
+    /// map.swap(&'a', &'c');
     ///
     /// let items: Vec<(char, u32)> = map.iter().map(|t| (*t.0, *t.1)).collect();
     /// assert_eq!(items, [('c', 30), ('b', 20), ('a', 10), ('d', 40)]);
     /// assert_eq!(map[&'a'], 10);
     /// assert_eq!(map[&'c'], 30);
     /// ```
-    pub fn swap(&mut self, k1: K, k2: K) -> bool {
-        match (self.map.get(&KeyRef{k: &k1}), self.map.get(&KeyRef{k: &k2})) {
+    pub fn swap(&mut self, k1: &K, k2: &K) -> bool {
+        match (self.map.get(&KeyRef{k: k1}), self.map.get(&KeyRef{k: k2})) {
             (Some(node1_ptr), Some(node2_ptr)) => {
                 unsafe {
                     let mut node1 = &mut **node1_ptr;
