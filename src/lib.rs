@@ -617,8 +617,8 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
         match (self.map.get(&KeyRef{k: &k1}), self.map.get(&KeyRef{k: &k2})) {
             (Some(node1_ptr), Some(node2_ptr)) => {
                 unsafe {
-                    let ref mut node1 = **node1_ptr;
-                    let ref mut node2 = **node2_ptr;
+                    let mut node1 = &mut **node1_ptr;
+                    let mut node2 = &mut **node2_ptr;
 
                     mem::swap(&mut (*(node1).next).prev, &mut (*(node2).next).prev);
                     mem::swap(&mut (*(node1).prev).next, &mut (*(node2).prev).next);
