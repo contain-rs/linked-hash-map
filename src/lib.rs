@@ -629,9 +629,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
 
                 true
             },
-            _ => {
-                false
-            }
+            _ => false,
         }
     }
 }
