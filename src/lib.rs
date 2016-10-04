@@ -592,6 +592,48 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     pub fn values(&self) -> Values<K, V> {
         Values { inner: self.iter() }
     }
+
+    /// Swaps the positions of two keys in the linked list.
+    /// Returns whether the swap was successful.
+    ///
+    /// # Examples
+    /// ```
+    /// use linked_hash_map::LinkedHashMap;
+    /// 
+    /// let mut map: LinkedHashMap<char, u32> = LinkedHashMap::new();
+    /// map.insert('a', 10);
+    /// map.insert('b', 20);
+    /// map.insert('c', 30);
+    /// map.insert('d', 40);
+    ///
+    /// map.swap('a', 'c');
+    ///
+    /// let items: Vec<(char, u32)> = map.iter().map(|t| (*t.0, *t.1)).collect();
+    /// assert_eq!(items, [('c', 30), ('b', 20), ('a', 10), ('d', 40)]);
+    /// assert_eq!(map[&'a'], 10);
+    /// assert_eq!(map[&'c'], 30);
+    /// ```
+    pub fn swap(&mut self, k1: K, k2: K) -> bool {
+        match (self.map.get(&KeyRef{k: &k1}), self.map.get(&KeyRef{k: &k2})) {
+            (Some(node1_ptr), Some(node2_ptr)) => {
+                unsafe {
+                    let ref mut node1 = **node1_ptr;
+                    let ref mut node2 = **node2_ptr;
+
+                    mem::swap(&mut (*(node1).next).prev, &mut (*(node2).next).prev);
+                    mem::swap(&mut (*(node1).prev).next, &mut (*(node2).prev).next);
+
+                    mem::swap(&mut node1.next, &mut node2.next);
+                    mem::swap(&mut node1.prev, &mut node2.prev);
+                }
+
+                true
+            },
+            _ => {
+                false
+            }
+        }
+    }
 }
 
 impl<'a, K, V, S, Q: ?Sized> Index<&'a Q> for LinkedHashMap<K, V, S>
