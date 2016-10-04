@@ -307,3 +307,32 @@ fn test_send_sync() {
     is_send_sync::<linked_hash_map::Keys<u32, i32>>();
     is_send_sync::<linked_hash_map::Values<u32, i32>>();
 }
+
+#[test]
+fn test_swap() {
+    let mut map = LinkedHashMap::new();
+    map.insert('a', 1);
+    map.insert('b', 2);
+    map.insert('c', 3);
+    map.insert('d', 4);
+
+    assert_eq!(map.swap(&'a', &'a'), true); 
+    assert_eq!(map.swap(&'a', &'e'), false);
+
+    map.swap(&'b', &'a');
+    assert_eq!(map.get(&'a'), Some(&1));
+    assert_eq!(map.get(&'b'), Some(&2));
+    map.swap(&'b', &'a');
+    
+    let mut items: Vec<(char, u32)> = map.iter().map(|t| (*t.0, *t.1)).collect();
+    assert_eq!(items, [('a', 1), ('b', 2), ('c', 3), ('d', 4)]);
+    map.remove(&'a');
+    assert_eq!(map.get(&'a'), None);
+
+    items = map.iter().map(|t| (*t.0, *t.1)).collect();
+    assert_eq!(items, [('b', 2), ('c', 3), ('d', 4)]);
+
+    map.swap(&'b', &'d');
+    items = map.iter().map(|t| (*t.0, *t.1)).collect();
+    assert_eq!(items, [('d', 4), ('c', 3), ('b', 2)]);
+}
