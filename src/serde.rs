@@ -9,12 +9,14 @@
 
 extern crate serde;
 
+use std::fmt::{Formatter, Result as FmtResult};
 use std::marker::PhantomData;
 use std::hash::{BuildHasher, Hash};
 
 use super::LinkedHashMap;
 
 use self::serde::{Serialize, Serializer, Deserialize, Deserializer};
+use self::serde::ser::SerializeMap;
 use self::serde::de::{Visitor, MapVisitor, Error};
 
 impl<K, V, S> Serialize for LinkedHashMap<K, V, S>
@@ -23,15 +25,15 @@ impl<K, V, S> Serialize for LinkedHashMap<K, V, S>
           S: BuildHasher
 {
     #[inline]
-    fn serialize<T>(&self, serializer: &mut T) -> Result<(), T::Error>
+    fn serialize<T>(&self, serializer:T) -> Result<T::Ok, T::Error>
         where T: Serializer,
     {
-        let mut state = try!(serializer.serialize_map(Some(self.len())));
+        let mut map_serializer = try!(serializer.serialize_map(Some(self.len())));
         for (k, v) in self {
-            try!(serializer.serialize_map_key(&mut state, k));
-            try!(serializer.serialize_map_value(&mut state, v));
+            try!(map_serializer.serialize_key(k));
+            try!(map_serializer.serialize_value(v));
         }
-        serializer.serialize_map_end(state)
+        map_serializer.end()
     }
 }
 
@@ -55,15 +57,19 @@ impl<K, V> Visitor for LinkedHashMapVisitor<K, V>
 {
     type Value = LinkedHashMap<K, V>;
 
+    fn expecting(&self, formatter: &mut Formatter) -> FmtResult {
+        write!(formatter, "a map")
+    }
+
     #[inline]
-    fn visit_unit<E>(&mut self) -> Result<Self::Value, E>
+    fn visit_unit<E>(self) -> Result<Self::Value, E>
         where E: Error,
     {
         Ok(LinkedHashMap::new())
     }
 
     #[inline]
-    fn visit_map<Visitor>(&mut self, mut visitor: Visitor) -> Result<Self::Value, Visitor::Error>
+    fn visit_map<Visitor>(self, mut visitor: Visitor) -> Result<Self::Value, Visitor::Error>
         where Visitor: MapVisitor,
     {
         let mut values = LinkedHashMap::with_capacity(visitor.size_hint().0);
@@ -71,8 +77,6 @@ impl<K, V> Visitor for LinkedHashMapVisitor<K, V>
         while let Some((key, value)) = try!(visitor.visit()) {
             values.insert(key, value);
         }
-
-        try!(visitor.end());
 
         Ok(values)
     }
@@ -82,7 +86,7 @@ impl<K, V> Deserialize for LinkedHashMap<K, V>
     where K: Deserialize + Eq + Hash,
           V: Deserialize,
 {
-    fn deserialize<D>(deserializer: &mut D) -> Result<LinkedHashMap<K, V>, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<LinkedHashMap<K, V>, D::Error>
         where D: Deserializer,
     {
         deserializer.deserialize_map(LinkedHashMapVisitor::new())

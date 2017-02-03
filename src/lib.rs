@@ -682,10 +682,6 @@ impl<K: Hash + Eq, V: PartialEq, S: BuildHasher> PartialEq for LinkedHashMap<K, 
     fn eq(&self, other: &Self) -> bool {
         self.len() == other.len() && self.iter().eq(other)
     }
-
-    fn ne(&self, other: &Self) -> bool {
-        self.len() != other.len() || self.iter().ne(other)
-    }
 }
 
 impl<K: Hash + Eq, V: Eq, S: BuildHasher> Eq for LinkedHashMap<K, V, S> {}
