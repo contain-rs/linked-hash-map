@@ -58,7 +58,7 @@ impl<K, V> Visitor for LinkedHashMapVisitor<K, V>
     type Value = LinkedHashMap<K, V>;
 
     fn expecting(&self, formatter: &mut Formatter) -> FmtResult {
-        write!(formatter, "linked hash map")
+        write!(formatter, "a map")
     }
 
     #[inline]
