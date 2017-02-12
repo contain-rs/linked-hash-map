@@ -3,12 +3,14 @@ sudo: false
 matrix:
     include:
         - rust: beta
+          env: FEATURES="serde_impl"
         - rust: nightly
-          env: FEATURES="--features nightly"
+          env: FEATURES="serde_impl nightly clippy"
+        - rust: stable
 script:
-    - cargo build $FEATURES
-    - cargo test $FEATURES
-    - cargo doc --no-deps $FEATURES
+    - cargo build --features "$FEATURES"
+    - cargo test --features "$FEATURES"
+    - cargo doc --no-deps --features "$FEATURES"
 after_success: |
     [ $TRAVIS_RUST_VERSION = nightly ] &&
     [ $TRAVIS_BRANCH = master ] &&

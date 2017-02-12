@@ -224,6 +224,81 @@ fn test_iter_mut() {
 }
 
 #[test]
+fn test_consuming_iter() {
+    let map = {
+        let mut map = LinkedHashMap::new();
+        map.insert("a", 10);
+        map.insert("c", 30);
+        map.insert("b", 20);
+        map
+    };
+
+    let mut iter = map.into_iter();
+    assert_eq!(Some(("a", 10)), iter.next());
+
+    let clone = iter.clone();
+    for iter in &mut [iter, clone] {
+        assert_eq!(Some(("b", 20)), iter.next_back());
+        assert_eq!(1, iter.len());
+        assert_eq!(Some(("c", 30)), iter.next());
+        assert_eq!(None, iter.next());
+    }
+}
+
+#[test]
+fn test_consuming_iter_empty() {
+    let map = LinkedHashMap::<&str, i32>::new();
+    let mut iter = map.into_iter();
+    assert_eq!(None, iter.next());
+    let mut clone = iter.clone();
+    assert_eq!(None, clone.next());
+}
+
+#[test]
+fn test_consuming_iter_with_free_list() {
+    let mut map = LinkedHashMap::new();
+    map.insert("a", 10);
+    map.insert("c", 30);
+    map.insert("b", 20);
+    map.remove("a");
+    map.remove("b");
+
+    let mut iter = map.into_iter();
+    assert_eq!(Some(("c", 30)), iter.next());
+    assert_eq!(None, iter.next());
+}
+
+#[test]
+fn test_into_iter_drop() {
+    struct Counter<'a>(&'a mut usize);
+
+    impl<'a> Drop for Counter<'a> {
+        fn drop(&mut self) {
+            *self.0 += 1;
+        }
+    }
+
+    let mut a = 0;
+    let mut b = 0;
+    let mut c = 0;
+
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("a", Counter(&mut a));
+        map.insert("b", Counter(&mut b));
+        map.insert("c", Counter(&mut c));
+
+        let mut iter = map.into_iter();
+        iter.next();
+        iter.next_back();
+    }
+
+    assert_eq!(a, 1);
+    assert_eq!(b, 1);
+    assert_eq!(c, 1);
+}
+
+#[test]
 fn test_borrow() {
     #[derive(PartialEq, Eq, Hash)] struct Foo(Bar);
     #[derive(PartialEq, Eq, Hash)] struct Bar(i32);
@@ -274,6 +349,7 @@ fn test_send_sync() {
     is_send_sync::<LinkedHashMap<u32, i32>>();
     is_send_sync::<linked_hash_map::Iter<u32, i32>>();
     is_send_sync::<linked_hash_map::IterMut<u32, i32>>();
+    is_send_sync::<linked_hash_map::IntoIter<u32, i32>>();
     is_send_sync::<linked_hash_map::Keys<u32, i32>>();
     is_send_sync::<linked_hash_map::Values<u32, i32>>();
 }
