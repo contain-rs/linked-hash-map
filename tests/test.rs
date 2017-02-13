@@ -1,6 +1,6 @@
 extern crate linked_hash_map;
 
-use linked_hash_map::LinkedHashMap;
+use linked_hash_map::{LinkedHashMap, Entry};
 
 fn assert_opt_eq<V: PartialEq>(opt: Option<&V>, v: V) {
     assert!(opt.is_some());
@@ -34,6 +34,111 @@ fn test_insert_update() {
     map.insert("1".to_string(), vec![10, 19]);
     assert_opt_eq(map.get(&"1".to_string()), vec![10, 19]);
     assert_eq!(map.len(), 1);
+}
+
+#[test]
+fn test_entry_insert_vacant() {
+    let mut map = LinkedHashMap::new();
+    match map.entry("1".to_string()) {
+        Entry::Vacant(e) => {
+            assert_eq!(*e.insert(vec![10, 10]), vec![10, 10]);
+        }
+        _ => panic!("fail"),
+    }
+    assert!(map.contains_key("1"));
+    assert_eq!(map["1"], vec![10, 10]);
+
+    match map.entry("1".to_string()) {
+        Entry::Occupied(mut e) => {
+            assert_eq!(*e.get(), vec![10, 10]);
+            assert_eq!(e.insert(vec![10, 16]), vec![10, 10]);
+        }
+        _ => panic!("fail"),
+    }
+
+    assert!(map.contains_key("1"));
+    assert_eq!(map["1"], vec![10, 16]);
+
+    match map.entry("1".to_string()) {
+        Entry::Occupied(e) => {
+            assert_eq!(e.remove(), vec![10, 16]);
+        }
+        _ => panic!("fail"),
+    }
+}
+
+#[test]
+fn test_entries_replacing() {
+    let mut map = LinkedHashMap::new();
+    map.insert("a", 10);
+
+    {
+        let mut iter = map.entries();
+        let mut entry = iter.next().unwrap();
+        assert_eq!(entry.insert(20), 10);
+        assert!(iter.next().is_none());
+    }
+
+    assert_eq!(map["a"], 20);
+}
+
+#[test]
+fn test_entries_remove() {
+    let mut map = LinkedHashMap::new();
+    map.insert("a", 10);
+    map.insert("b", 20);
+    map.insert("c", 30);
+    map.insert("d", 40);
+
+    // remove middle
+    {
+        let mut iter = map.entries();
+        iter.next().unwrap();
+        let b = iter.next().unwrap();
+        assert_eq!(*b.key(), "b");
+        assert_eq!(b.remove(), 20);
+        assert_eq!(*iter.next().unwrap().key(), "c");
+    }
+
+    assert_eq!(map.len(), 3);
+    assert_eq!(map["a"], 10);
+    assert_eq!(map["c"], 30);
+    assert_eq!(map["d"], 40);
+
+    // remove first
+    {
+        let mut iter = map.entries();
+        let a = iter.next().unwrap();
+        assert_eq!(*a.key(), "a");
+        assert_eq!(a.remove(), 10);
+    }
+
+    assert_eq!(map.len(), 2);
+    assert_eq!(map["c"], 30);
+    assert_eq!(map["d"], 40);
+
+    // remove last
+    {
+        let mut iter = map.entries();
+        iter.next().unwrap();
+        let d = iter.next().unwrap();
+        assert_eq!(*d.key(), "d");
+        assert_eq!(d.remove(), 40);
+        assert!(iter.next().is_none());
+    }
+
+    assert_eq!(map.len(), 1);
+    assert_eq!(map["c"], 30);
+
+    // remove only
+    {
+        let mut iter = map.entries();
+        let c = iter.next().unwrap();
+        assert_eq!(*c.key(), "c");
+        assert_eq!(c.remove(), 30);
+    }
+
+    assert!(map.is_empty());
 }
 
 #[test]
