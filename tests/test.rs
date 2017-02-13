@@ -83,6 +83,65 @@ fn test_entries_replacing() {
 }
 
 #[test]
+fn test_entries_remove() {
+    let mut map = LinkedHashMap::new();
+    map.insert("a", 10);
+    map.insert("b", 20);
+    map.insert("c", 30);
+    map.insert("d", 40);
+
+    // remove middle
+    {
+        let mut iter = map.entries();
+        iter.next().unwrap();
+        let b = iter.next().unwrap();
+        assert_eq!(*b.key(), "b");
+        assert_eq!(b.remove(), 20);
+        assert_eq!(*iter.next().unwrap().key(), "c");
+    }
+
+    assert_eq!(map.len(), 3);
+    assert_eq!(map["a"], 10);
+    assert_eq!(map["c"], 30);
+    assert_eq!(map["d"], 40);
+
+    // remove first
+    {
+        let mut iter = map.entries();
+        let a = iter.next().unwrap();
+        assert_eq!(*a.key(), "a");
+        assert_eq!(a.remove(), 10);
+    }
+
+    assert_eq!(map.len(), 2);
+    assert_eq!(map["c"], 30);
+    assert_eq!(map["d"], 40);
+
+    // remove last
+    {
+        let mut iter = map.entries();
+        iter.next().unwrap();
+        let d = iter.next().unwrap();
+        assert_eq!(*d.key(), "d");
+        assert_eq!(d.remove(), 40);
+        assert!(iter.next().is_none());
+    }
+
+    assert_eq!(map.len(), 1);
+    assert_eq!(map["c"], 30);
+
+    // remove only
+    {
+        let mut iter = map.entries();
+        let c = iter.next().unwrap();
+        assert_eq!(*c.key(), "c");
+        assert_eq!(c.remove(), 30);
+    }
+
+    assert!(map.is_empty());
+}
+
+#[test]
 fn test_debug() {
     let mut map = LinkedHashMap::new();
     assert_eq!(format!("{:?}", map), "{}");
