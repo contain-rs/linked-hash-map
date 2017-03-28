@@ -412,3 +412,31 @@ fn test_send_sync() {
     is_send_sync::<linked_hash_map::Keys<u32, i32>>();
     is_send_sync::<linked_hash_map::Values<u32, i32>>();
 }
+
+#[test]
+fn mark_lru() {
+    let mut map: LinkedHashMap<u32, u32> = LinkedHashMap::new();
+    map.insert(1, 1);
+    assert_eq!(map.front(), Some((&1, &1)));
+
+    map.insert(2, 2);
+    assert_eq!(map.front(), Some((&1, &1)));
+
+    assert!(map.mark_lru(&2));
+    assert_eq!(map.front(), Some((&2, &2)));
+
+    map.pop_front();
+    assert_eq!(map.front(), Some((&1, &1)));
+
+    assert!(map.mark_lru(&1));
+    assert_eq!(map.pop_front(), Some((1, 1)));
+}
+
+#[test]
+fn mark_lru_non_existent() {
+    let mut map: LinkedHashMap<u32, u32> = LinkedHashMap::new();
+    assert!(!map.mark_lru(&1));
+    map.insert(1, 1);
+
+    assert!(!map.mark_lru(&2));
+}

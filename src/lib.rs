@@ -145,6 +145,20 @@ impl<K, V, S> LinkedHashMap<K, V, S> {
         }
     }
 
+    #[inline]
+    fn attach_prev(&mut self, node: *mut Node<K, V>) {
+        unsafe {
+            if (*self.head).prev != self.head {
+                (*(*self.head).prev).next = node;
+                (*node).next = self.head;
+                (*node).prev = (*self.head).prev;
+                (*self.head).prev = node;
+            } else {
+                self.attach_next(node);
+            }
+        }
+    }
+
     // Caller must check `!self.head.is_null()`
     unsafe fn drop_entries(&mut self) {
         let mut cur = (*self.head).next;
@@ -413,6 +427,45 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
             self.attach_next(node_ptr);
         }
         value
+    }
+
+    /// Marks the given key as least recently used. This can be used to specify that some
+    /// keys are less important than others.
+    ///
+    /// Returns `true` if the key is contained in the map and is now the least recently used entry,
+    /// `false` otherwise.
+    ///
+    /// ```
+    /// use linked_hash_map::LinkedHashMap;
+    /// let mut map = LinkedHashMap::new();
+    ///
+    /// map.insert(1, "a");
+    /// map.insert(2, "b");
+    /// map.insert(3, "c");
+    ///
+    /// assert_eq!(map.front(), Some((&1, &"a")));
+    ///
+    /// assert!(map.mark_lru(&3));
+    /// assert_eq!(map.pop_front(), Some((3, "c")));
+    /// assert_eq!(map.front(), Some((&1, &"a")));
+    ///
+    /// assert!(map.mark_lru(&2));
+    /// assert_eq!(map.pop_front(), Some((2, "b")));
+    /// assert_eq!(map.front(), Some((&1, &"a")));
+    /// ```
+    pub fn mark_lru<Q: ?Sized>(&mut self, k: &Q) -> bool where K: Borrow<Q>, Q: Eq + Hash {
+        let node_ptr = match self.map.get(Qey::from_ref(k)) {
+            None => return false,
+            Some(node) => *node,
+        };
+
+        // if there is only one element, marking it lru will not make a difference
+        if self.map.len() > 1 {
+            self.detach(node_ptr);
+            self.attach_prev(node_ptr);
+        }
+
+        true
     }
 
     /// Removes and returns the value corresponding to the key from the map.
