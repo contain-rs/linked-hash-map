@@ -136,7 +136,7 @@ impl<K, V, S> LinkedHashMap<K, V, S> {
     }
 
     #[inline]
-    fn attach(&mut self, node: *mut Node<K, V>) {
+    fn attach_next(&mut self, node: *mut Node<K, V>) {
         unsafe {
             (*node).next = (*self.head).next;
             (*node).prev = self.head;
@@ -328,12 +328,12 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
             Some(_) => {
                 // Existing node, just update LRU position
                 self.detach(node);
-                self.attach(node);
+                self.attach_next(node);
             }
             None => {
                 let keyref = unsafe { &(*node).key };
                 self.map.insert(KeyRef{k: keyref}, node);
-                self.attach(node);
+                self.attach_next(node);
             }
         }
         old_val
@@ -410,7 +410,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
         };
         if let Some(node_ptr) = node_ptr_opt {
             self.detach(node_ptr);
-            self.attach(node_ptr);
+            self.attach_next(node_ptr);
         }
         value
     }
@@ -1250,7 +1250,7 @@ impl<'a, K: Hash + Eq, V, S: BuildHasher> OccupiedEntry<'a, K, V, S> {
 
             // Existing node, just update LRU position
             (*self.map).detach(node_ptr);
-            (*self.map).attach(node_ptr);
+            (*self.map).attach_next(node_ptr);
 
             old_val
         }
@@ -1297,7 +1297,7 @@ impl<'a, K: 'a + Hash + Eq, V: 'a, S: BuildHasher> VacantEntry<'a, K, V, S> {
 
         let keyref = unsafe { &(*node).key };
 
-        self.map.attach(node);
+        self.map.attach_next(node);
 
         let ret = self.map.map.entry(KeyRef{k: keyref}).or_insert(node);
         unsafe { &mut (**ret).value }
