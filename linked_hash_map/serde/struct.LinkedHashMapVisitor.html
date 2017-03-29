@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `LinkedHashMapVisitor` struct in crate `linked_hash_map`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, LinkedHashMapVisitor">
+
+    <title>linked_hash_map::serde::LinkedHashMapVisitor - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../index.html'>linked_hash_map</a>::<wbr><a href='index.html'>serde</a></p><script>window.sidebarCurrent = {name: 'LinkedHashMapVisitor', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../index.html'>linked_hash_map</a>::<wbr><a href='index.html'>serde</a>::<wbr><a class="struct" href=''>LinkedHashMapVisitor</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../../src/linked_hash_map/serde.rs.html#41-43' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct LinkedHashMapVisitor&lt;K, V&gt; { /* fields omitted */ }</pre><div class='docblock'><p><code>serde::de::Visitor</code> for a linked hash map.</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl&lt;K, V&gt; <a class="struct" href="../../linked_hash_map/serde/struct.LinkedHashMapVisitor.html" title="struct linked_hash_map::serde::LinkedHashMapVisitor">LinkedHashMapVisitor</a>&lt;K, V&gt;</code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/linked_hash_map/serde.rs.html#45-52' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.new' class="method"><span id='new.v' class='invisible'><code>fn <a href='#method.new' class='fnname'>new</a>() -&gt; Self</code></span></h4>
+<div class='docblock'><p>Creates a new visitor for a linked hash map.</p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl&lt;K, V&gt; <a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Visitor</a> for <a class="struct" href="../../linked_hash_map/serde/struct.LinkedHashMapVisitor.html" title="struct linked_hash_map::serde::LinkedHashMapVisitor">LinkedHashMapVisitor</a>&lt;K, V&gt; <span class="where fmt-newline">where K: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Deserialize.html" title="trait serde::de::Deserialize">Deserialize</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/hash/trait.Hash.html" title="trait core::hash::Hash">Hash</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;V: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Deserialize.html" title="trait serde::de::Deserialize">Deserialize</a></span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/linked_hash_map/serde.rs.html#54-83' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='associatedtype.Value' class="type"><span id='Value.t' class='invisible'><code>type <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#associatedtype.Value' class="type">Value</a> = <a class="struct" href="../../linked_hash_map/struct.LinkedHashMap.html" title="struct linked_hash_map::LinkedHashMap">LinkedHashMap</a>&lt;K, V&gt;</code></span></h4>
+<div class='docblock'><p>The value produced by this visitor.</p>
+</div><h4 id='method.expecting' class="method"><span id='expecting.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#tymethod.expecting' class='fnname'>expecting</a>(&amp;self, formatter: &amp;mut <a class="struct" href="https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html" title="struct core::fmt::Formatter">Formatter</a>) -&gt; <a class="type" href="https://doc.rust-lang.org/nightly/core/fmt/type.Result.html" title="type core::fmt::Result">FmtResult</a></code></span></h4>
+<div class='docblock'><p>Format a message stating what data this Visitor expects to receive. <a href="https://docs.serde.rs/serde/de/trait.Visitor.html#tymethod.expecting">Read more</a></p>
+</div><h4 id='method.visit_unit' class="method"><span id='visit_unit.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_unit' class='fnname'>visit_unit</a>&lt;E&gt;(self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize a <code>()</code> into a <code>Value</code>.</p>
+</div><h4 id='method.visit_map' class="method"><span id='visit_map.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_map' class='fnname'>visit_map</a>&lt;Visitor&gt;(self,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; visitor: Visitor)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, Visitor::<a class="trait" href="https://docs.serde.rs/serde/de/trait.MapVisitor.html" title="trait serde::de::MapVisitor">Error</a>&gt; <span class="where fmt-newline">where Visitor: <a class="trait" href="https://docs.serde.rs/serde/de/trait.MapVisitor.html" title="trait serde::de::MapVisitor">MapVisitor</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize <code>Value</code> as a key-value map.</p>
+</div><h4 id='method.visit_bool' class="method"><span id='visit_bool.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_bool' class='fnname'>visit_bool</a>&lt;E&gt;(self, v: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize a <code>bool</code> into a <code>Value</code>.</p>
+</div><h4 id='method.visit_i8' class="method"><span id='visit_i8.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_i8' class='fnname'>visit_i8</a>&lt;E&gt;(self, v: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i8.html">i8</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize an <code>i8</code> into a <code>Value</code>.</p>
+</div><h4 id='method.visit_i16' class="method"><span id='visit_i16.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_i16' class='fnname'>visit_i16</a>&lt;E&gt;(self, v: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i16.html">i16</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize an <code>i16</code> into a <code>Value</code>.</p>
+</div><h4 id='method.visit_i32' class="method"><span id='visit_i32.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_i32' class='fnname'>visit_i32</a>&lt;E&gt;(self, v: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize an <code>i32</code> into a <code>Value</code>.</p>
+</div><h4 id='method.visit_i64' class="method"><span id='visit_i64.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_i64' class='fnname'>visit_i64</a>&lt;E&gt;(self, v: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i64.html">i64</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize an <code>i64</code> into a <code>Value</code>.</p>
+</div><h4 id='method.visit_u8' class="method"><span id='visit_u8.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_u8' class='fnname'>visit_u8</a>&lt;E&gt;(self, v: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize a <code>u8</code> into a <code>Value</code>.</p>
+</div><h4 id='method.visit_u16' class="method"><span id='visit_u16.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_u16' class='fnname'>visit_u16</a>&lt;E&gt;(self, v: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u16.html">u16</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize a <code>u16</code> into a <code>Value</code>.</p>
+</div><h4 id='method.visit_u32' class="method"><span id='visit_u32.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_u32' class='fnname'>visit_u32</a>&lt;E&gt;(self, v: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize a <code>u32</code> into a <code>Value</code>.</p>
+</div><h4 id='method.visit_u64' class="method"><span id='visit_u64.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_u64' class='fnname'>visit_u64</a>&lt;E&gt;(self, v: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize a <code>u64</code> into a <code>Value</code>.</p>
+</div><h4 id='method.visit_f32' class="method"><span id='visit_f32.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_f32' class='fnname'>visit_f32</a>&lt;E&gt;(self, v: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.f32.html">f32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize a <code>f32</code> into a <code>Value</code>.</p>
+</div><h4 id='method.visit_f64' class="method"><span id='visit_f64.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_f64' class='fnname'>visit_f64</a>&lt;E&gt;(self, v: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.f64.html">f64</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize a <code>f64</code> into a <code>Value</code>.</p>
+</div><h4 id='method.visit_char' class="method"><span id='visit_char.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_char' class='fnname'>visit_char</a>&lt;E&gt;(self, v: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.char.html">char</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize a <code>char</code> into a <code>Value</code>.</p>
+</div><h4 id='method.visit_str' class="method"><span id='visit_str.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_str' class='fnname'>visit_str</a>&lt;E&gt;(self, v: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize a <code>&amp;str</code> into a <code>Value</code>. <a href="https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_str">Read more</a></p>
+</div><h4 id='method.visit_string' class="method"><span id='visit_string.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_string' class='fnname'>visit_string</a>&lt;E&gt;(self, v: <a class="struct" href="https://doc.rust-lang.org/nightly/collections/string/struct.String.html" title="struct collections::string::String">String</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize a <code>String</code> into a <code>Value</code>. <a href="https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_string">Read more</a></p>
+</div><h4 id='method.visit_none' class="method"><span id='visit_none.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_none' class='fnname'>visit_none</a>&lt;E&gt;(self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize an absent optional <code>Value</code>.</p>
+</div><h4 id='method.visit_some' class="method"><span id='visit_some.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_some' class='fnname'>visit_some</a>&lt;D&gt;(self, deserializer: D) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, D::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Deserializer.html" title="trait serde::de::Deserializer">Error</a>&gt; <span class="where fmt-newline">where D: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Deserializer.html" title="trait serde::de::Deserializer">Deserializer</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize a present optional <code>Value</code>.</p>
+</div><h4 id='method.visit_newtype_struct' class="method"><span id='visit_newtype_struct.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_newtype_struct' class='fnname'>visit_newtype_struct</a>&lt;D&gt;(self,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; deserializer: D)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, D::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Deserializer.html" title="trait serde::de::Deserializer">Error</a>&gt; <span class="where fmt-newline">where D: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Deserializer.html" title="trait serde::de::Deserializer">Deserializer</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize <code>Value</code> as a newtype struct.</p>
+</div><h4 id='method.visit_seq' class="method"><span id='visit_seq.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_seq' class='fnname'>visit_seq</a>&lt;V&gt;(self, visitor: V) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, V::<a class="trait" href="https://docs.serde.rs/serde/de/trait.SeqVisitor.html" title="trait serde::de::SeqVisitor">Error</a>&gt; <span class="where fmt-newline">where V: <a class="trait" href="https://docs.serde.rs/serde/de/trait.SeqVisitor.html" title="trait serde::de::SeqVisitor">SeqVisitor</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize <code>Value</code> as a sequence of elements.</p>
+</div><h4 id='method.visit_enum' class="method"><span id='visit_enum.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_enum' class='fnname'>visit_enum</a>&lt;V&gt;(self, visitor: V) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, V::<a class="trait" href="https://docs.serde.rs/serde/de/trait.EnumVisitor.html" title="trait serde::de::EnumVisitor">Error</a>&gt; <span class="where fmt-newline">where V: <a class="trait" href="https://docs.serde.rs/serde/de/trait.EnumVisitor.html" title="trait serde::de::EnumVisitor">EnumVisitor</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize <code>Value</code> as an enum.</p>
+</div><h4 id='method.visit_bytes' class="method"><span id='visit_bytes.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_bytes' class='fnname'>visit_bytes</a>&lt;E&gt;(self, v: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.slice.html">&amp;[</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.slice.html">]</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize a <code>&amp;[u8]</code> into a <code>Value</code>. <a href="https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_bytes">Read more</a></p>
+</div><h4 id='method.visit_byte_buf' class="method"><span id='visit_byte_buf.v' class='invisible'><code>fn <a href='https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_byte_buf' class='fnname'>visit_byte_buf</a>&lt;E&gt;(self, v: <a class="struct" href="https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html" title="struct collections::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="trait" href="https://docs.serde.rs/serde/de/trait.Visitor.html" title="trait serde::de::Visitor">Value</a>, E&gt; <span class="where fmt-newline">where E: <a class="trait" href="https://docs.serde.rs/serde/de/trait.Error.html" title="trait serde::de::Error">Error</a></span></code></span></h4>
+<div class='docblock'><p>Deserialize a <code>Vec&lt;u8&gt;</code> into a <code>Value</code>. <a href="https://docs.serde.rs/serde/de/trait.Visitor.html#method.visit_byte_buf">Read more</a></p>
+</div></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "linked_hash_map";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    <script defer src="../../search-index.js"></script>
+</body>
+</html>
