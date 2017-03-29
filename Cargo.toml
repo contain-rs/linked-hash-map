@@ -18,8 +18,10 @@ readme = "README.md"
 [features]
 nightly = []
 serde_impl = ["serde", "serde_test"]
+heapsize_impl = ["heapsize"]
 
 [dependencies]
 clippy = { version = "0.*", optional = true }
 serde = { version = "0.9", optional = true }
 serde_test = { version = "0.9", optional = true }
+heapsize = { version = "0.3.9", optional = true }

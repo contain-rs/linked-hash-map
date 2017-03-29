@@ -37,6 +37,9 @@
 // Optional Serde support
 #[cfg(feature = "serde_impl")]
 pub mod serde;
+// Optional Heapsize support
+#[cfg(feature = "heapsize_impl")]
+mod heapsize;
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
