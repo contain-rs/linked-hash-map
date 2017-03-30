@@ -435,6 +435,8 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// Returns `true` if the key is contained in the map and is now the least recently used entry,
     /// `false` otherwise.
     ///
+    /// # Examples
+    ///
     /// ```
     /// use linked_hash_map::LinkedHashMap;
     /// let mut map = LinkedHashMap::new();
