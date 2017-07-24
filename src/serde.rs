@@ -1,11 +1,4 @@
-//! An optional implementation of serialization/deserialization. Reference
-//! implementations used:
-//!
-//! - [Serialize][1].
-//! - [Deserialize][2].
-//!
-//! [1]: https://github.com/serde-rs/serde/blob/97856462467db2e90cf368e407c7ebcc726a01a9/serde/src/ser/impls.rs#L601-L611
-//! [2]: https://github.com/serde-rs/serde/blob/97856462467db2e90cf368e407c7ebcc726a01a9/serde/src/de/impls.rs#L694-L746
+//! An optional implementation of serialization/deserialization.
 
 extern crate serde;
 
@@ -17,7 +10,7 @@ use super::LinkedHashMap;
 
 use self::serde::{Serialize, Serializer, Deserialize, Deserializer};
 use self::serde::ser::SerializeMap;
-use self::serde::de::{Visitor, MapVisitor, Error};
+use self::serde::de::{Visitor, MapAccess, Error};
 
 impl<K, V, S> Serialize for LinkedHashMap<K, V, S>
     where K: Serialize + Eq + Hash,
@@ -37,6 +30,7 @@ impl<K, V, S> Serialize for LinkedHashMap<K, V, S>
     }
 }
 
+#[derive(Debug)]
 /// `serde::de::Visitor` for a linked hash map.
 pub struct LinkedHashMapVisitor<K, V> {
     marker: PhantomData<LinkedHashMap<K, V>>,
@@ -51,9 +45,15 @@ impl<K, V> LinkedHashMapVisitor<K, V> {
     }
 }
 
-impl<K, V> Visitor for LinkedHashMapVisitor<K, V>
-    where K: Deserialize + Eq + Hash,
-          V: Deserialize,
+impl<K, V> Default for LinkedHashMapVisitor<K, V> {
+    fn default() -> Self {
+        LinkedHashMapVisitor::new()
+    }
+}
+
+impl<'de, K, V> Visitor<'de> for LinkedHashMapVisitor<K, V>
+    where K: Deserialize<'de> + Eq + Hash,
+          V: Deserialize<'de>,
 {
     type Value = LinkedHashMap<K, V>;
 
@@ -69,12 +69,12 @@ impl<K, V> Visitor for LinkedHashMapVisitor<K, V>
     }
 
     #[inline]
-    fn visit_map<Visitor>(self, mut visitor: Visitor) -> Result<Self::Value, Visitor::Error>
-        where Visitor: MapVisitor,
+    fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+        where M: MapAccess<'de>,
     {
-        let mut values = LinkedHashMap::with_capacity(visitor.size_hint().0);
+        let mut values = LinkedHashMap::with_capacity(map.size_hint().unwrap_or(0));
 
-        while let Some((key, value)) = try!(visitor.visit()) {
+        while let Some((key, value)) = map.next_entry()? {
             values.insert(key, value);
         }
 
@@ -82,12 +82,12 @@ impl<K, V> Visitor for LinkedHashMapVisitor<K, V>
     }
 }
 
-impl<K, V> Deserialize for LinkedHashMap<K, V>
-    where K: Deserialize + Eq + Hash,
-          V: Deserialize,
+impl<'de, K, V> Deserialize<'de> for LinkedHashMap<K, V>
+    where K: Deserialize<'de> + Eq + Hash,
+          V: Deserialize<'de>,
 {
     fn deserialize<D>(deserializer: D) -> Result<LinkedHashMap<K, V>, D::Error>
-        where D: Deserializer,
+        where D: Deserializer<'de>,
     {
         deserializer.deserialize_map(LinkedHashMapVisitor::new())
     }
