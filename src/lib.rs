@@ -41,6 +41,32 @@ pub mod serde;
 #[cfg(feature = "heapsize_impl")]
 mod heapsize;
 
+/// Creates an `LinkedHashMap` containing the provided key => value pairs.
+///
+/// # Examples
+///
+/// ```
+/// # #[macro_use] extern crate linked_hash_map;
+/// # fn main() {
+/// let ratings = linkedhashmap![
+///     "The Fellowship of the Ring" => 3,
+///     "The Two Towers" => 5,
+///     "The Return of the King" => 4,
+/// ];
+///
+/// assert_eq!(ratings["The Fellowship of the Ring"], 3);
+/// assert_eq!(ratings.len(), 3);
+/// # }
+/// ```
+#[macro_export]
+macro_rules! linkedhashmap {
+    ($( $key: expr => $val: expr ), * $(,)*) => {{
+         let mut map = ::linked_hash_map::LinkedHashMap::new();
+         $( map.insert($key, $val); )*
+         map
+    }}
+}
+
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::hash_map::{self, HashMap};
