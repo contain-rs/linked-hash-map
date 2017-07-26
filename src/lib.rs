@@ -41,7 +41,7 @@ pub mod serde;
 #[cfg(feature = "heapsize_impl")]
 mod heapsize;
 
-/// Creates an LinkedHashMap containing the provided key => value pairs.
+/// Creates an `LinkedHashMap` containing the provided key => value pairs.
 ///
 /// # Examples
 ///
