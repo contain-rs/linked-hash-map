@@ -140,6 +140,18 @@ fn test_entries_remove() {
 
     assert!(map.is_empty());
 }
+#[test]
+fn entries_insert() {
+    let mut map = LinkedHashMap::new();
+    map.insert(0, 0);
+    map.insert(1, 1);
+
+    let mut iter = map.entries();
+
+    iter.next().unwrap().insert(0);
+    iter.next().unwrap(); // 1
+    assert!(iter.next().is_none());
+}
 
 #[test]
 fn test_debug() {
