@@ -690,6 +690,27 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     pub fn values(&self) -> Values<K, V> {
         Values { inner: self.iter() }
     }
+
+    /// Returns a double-ended iterator mutably visiting all values in order of insertion.
+    ///
+    /// # Examples
+    /// ```
+    /// use linked_hash_map::LinkedHashMap;
+    ///
+    /// let mut map = LinkedHashMap::new();
+    /// map.insert('a', 10);
+    /// map.insert('c', 30);
+    /// map.insert('b', 20);
+    ///
+    /// for val in map.values_mut() {
+    ///     *val += 10;
+    /// }
+    ///
+    /// assert_eq!(map.values().cloned().collect::<Vec<_>>(), vec![20, 40, 30]);
+    /// ```
+    pub fn values_mut(&mut self) -> ValuesMut<K, V> {
+        ValuesMut { inner: self.iter_mut() }
+    }
 }
 
 impl<'a, K, V, S, Q: ?Sized> Index<&'a Q> for LinkedHashMap<K, V, S>
@@ -1103,6 +1124,26 @@ impl<'a, K, V> DoubleEndedIterator for Values<'a, K, V> {
 }
 
 impl<'a, K, V> ExactSizeIterator for Values<'a, K, V> {
+    fn len(&self) -> usize { self.inner.len() }
+}
+
+/// An insertion-order, mutable iterator over a `LinkedHashMap`'s values.
+pub struct ValuesMut<'a, K: 'a, V: 'a> {
+    inner: IterMut<'a, K, V>,
+}
+
+impl<'a, K, V> Iterator for ValuesMut<'a, K, V> {
+    type Item = &'a mut V;
+
+    #[inline] fn next(&mut self) -> Option<&'a mut V> { self.inner.next().map(|e| e.1) }
+    #[inline] fn size_hint(&self) -> (usize, Option<usize>) { self.inner.size_hint() }
+}
+
+impl<'a, K, V> DoubleEndedIterator for ValuesMut<'a, K, V> {
+    #[inline] fn next_back(&mut self) -> Option<&'a mut V> { self.inner.next_back().map(|e| e.1) }
+}
+
+impl<'a, K, V> ExactSizeIterator for ValuesMut<'a, K, V> {
     fn len(&self) -> usize { self.inner.len() }
 }
 
