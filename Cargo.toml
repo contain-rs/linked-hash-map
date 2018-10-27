@@ -14,6 +14,7 @@ homepage = "https://github.com/contain-rs/linked-hash-map"
 documentation = "https://contain-rs.github.io/linked-hash-map/linked_hash_map"
 keywords = ["data-structures"]
 readme = "README.md"
+exclude = ["/.travis.yml", "/deploy-docs.sh"]
 
 [features]
 nightly = []
