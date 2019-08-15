@@ -171,7 +171,8 @@ impl<K, V, S> LinkedHashMap<K, V, S> {
         if self.head.is_null() {
             // allocate the guard node if not present
             unsafe {
-                self.head = Box::into_raw(Box::new(mem::uninitialized()));
+                let node_layout = std::alloc::Layout::new::<Node<K, V>>();
+                self.head =  std::alloc::alloc(node_layout) as *mut Node<K, V>;
                 (*self.head).next = self.head;
                 (*self.head).prev = self.head;
             }
