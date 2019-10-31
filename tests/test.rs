@@ -1,6 +1,6 @@
 extern crate linked_hash_map;
 
-use linked_hash_map::{LinkedHashMap, Entry};
+use linked_hash_map::{Entry, LinkedHashMap};
 
 fn assert_opt_eq<V: PartialEq>(opt: Option<&V>, v: V) {
     assert!(opt.is_some());
@@ -191,7 +191,6 @@ fn test_remove() {
     assert_opt_eq(map.get(&8), 80);
 }
 
-
 #[test]
 fn test_pop() {
     let mut map = LinkedHashMap::new();
@@ -371,11 +370,15 @@ fn test_into_iter_drop() {
 
 #[test]
 fn test_borrow() {
-    #[derive(PartialEq, Eq, Hash)] struct Foo(Bar);
-    #[derive(PartialEq, Eq, Hash)] struct Bar(i32);
+    #[derive(PartialEq, Eq, Hash)]
+    struct Foo(Bar);
+    #[derive(PartialEq, Eq, Hash)]
+    struct Bar(i32);
 
     impl ::std::borrow::Borrow<Bar> for Foo {
-        fn borrow(&self) -> &Bar { &self.0 }
+        fn borrow(&self) -> &Bar {
+            &self.0
+        }
     }
 
     let mut map = LinkedHashMap::new();

@@ -3,12 +3,15 @@
 extern crate heapsize;
 extern crate linked_hash_map;
 
-use linked_hash_map::LinkedHashMap;
 use heapsize::HeapSizeOf;
+use linked_hash_map::LinkedHashMap;
 
 #[test]
 fn empty() {
-    assert_eq!(LinkedHashMap::<String, String>::new().heap_size_of_children(), 0);
+    assert_eq!(
+        LinkedHashMap::<String, String>::new().heap_size_of_children(),
+        0
+    );
 }
 
 #[test]

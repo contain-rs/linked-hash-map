@@ -4,16 +4,13 @@ extern crate linked_hash_map;
 use linked_hash_map::LinkedHashMap;
 
 extern crate serde_test;
-use serde_test::{Token, assert_tokens};
+use serde_test::{assert_tokens, Token};
 
 #[test]
 fn test_ser_de_empty() {
     let map = LinkedHashMap::<char, u32>::new();
 
-    assert_tokens(&map, &[
-        Token::Map { len: Some(0) },
-        Token::MapEnd,
-    ]);
+    assert_tokens(&map, &[Token::Map { len: Some(0) }, Token::MapEnd]);
 }
 
 #[test]
@@ -23,16 +20,17 @@ fn test_ser_de() {
     map.insert('a', 10);
     map.insert('c', 30);
 
-    assert_tokens(&map, &[
-        Token::Map { len: Some(3) },
+    assert_tokens(
+        &map,
+        &[
+            Token::Map { len: Some(3) },
             Token::Char('b'),
             Token::I32(20),
-
             Token::Char('a'),
             Token::I32(10),
-
             Token::Char('c'),
             Token::I32(30),
-        Token::MapEnd,
-    ]);
+            Token::MapEnd,
+        ],
+    );
 }
