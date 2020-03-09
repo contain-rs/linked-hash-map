@@ -86,6 +86,7 @@ impl<K: Eq> Eq for KeyRef<K> {}
 // due to conflicting implementations of `Borrow`. The layout of `&Qey<Q>` must be identical to
 // `&Q` in order to support transmuting in the `Qey::from_ref` method.
 #[derive(Hash, PartialEq, Eq)]
+#[repr(transparent)]
 struct Qey<Q: ?Sized>(Q);
 
 impl<Q: ?Sized> Qey<Q> {
