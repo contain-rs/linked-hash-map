@@ -19,7 +19,7 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
     - name: Run tests (gecko-ffi)
-      run: cargo test --tests --features=gecko-ffi --verbose
+      run: cargo test --tests --verbose
       
   miri:
     name: "Miri"
