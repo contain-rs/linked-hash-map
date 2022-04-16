@@ -196,7 +196,7 @@ impl<K, V, S> LinkedHashMap<K, V, S> {
 impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     fn with_map(map: HashMap<KeyRef<K>, *mut Node<K, V>, S>) -> Self {
         LinkedHashMap {
-            map: map,
+            map,
             head: ptr::null_mut(),
             free: ptr::null_mut(),
         }
@@ -293,7 +293,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
         };
         Entries {
             map: self,
-            head: head,
+            head,
             remaining: self.len(),
             marker: marker::PhantomData,
         }
@@ -655,7 +655,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
             unsafe { (*self.head).prev }
         };
         Iter {
-            head: head,
+            head,
             tail: self.head,
             remaining: self.len(),
             marker: marker::PhantomData,
@@ -689,7 +689,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
             unsafe { (*self.head).prev }
         };
         IterMut {
-            head: head,
+            head,
             tail: self.head,
             remaining: self.len(),
             marker: marker::PhantomData,
@@ -1012,8 +1012,8 @@ where
         }
 
         IntoIter {
-            head: head,
-            tail: tail,
+            head,
+            tail,
             remaining: self.remaining,
             marker: marker::PhantomData,
         }
@@ -1298,8 +1298,8 @@ impl<K: Hash + Eq, V, S: BuildHasher> IntoIterator for LinkedHashMap<K, V, S> {
         mem::forget(self);
 
         IntoIter {
-            head: head,
-            tail: tail,
+            head,
+            tail,
             remaining: len,
             marker: marker::PhantomData,
         }
