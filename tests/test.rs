@@ -1,3 +1,6 @@
+#![allow(clippy::needless_collect)]
+#![allow(clippy::iter_cloned_collect)]
+
 extern crate linked_hash_map;
 
 use linked_hash_map::{Entry, LinkedHashMap};
@@ -65,6 +68,49 @@ fn test_entry_insert_vacant() {
         }
         _ => panic!("fail"),
     }
+}
+
+#[test]
+fn test_entry_or_default() {
+    let mut map = LinkedHashMap::<String, Vec<u32>>::new();
+    map.entry("hello".to_string()).or_default().push(4);
+    map.entry("hello".to_string()).or_default().push(5);
+    map.entry("hello".to_string()).or_default().push(8);
+
+    map.entry("bye".to_string()).or_default().push(9);
+
+    map.entry("there".to_string()).or_default();
+
+    assert_eq!(map["hello"], &[4, 5, 8]);
+    assert_eq!(map["bye"], &[9]);
+    assert_eq!(map["there"], &[]);
+}
+
+#[test]
+fn test_entry_and_modify() {
+    let mut map = LinkedHashMap::<String, Vec<u32>>::new();
+    map.entry("hello".to_string())
+        .and_modify(|v| v.push(3))
+        .or_default();
+    map.entry("hello".to_string())
+        .and_modify(|v| v.push(4))
+        .or_default();
+    map.entry("hello".to_string())
+        .and_modify(|v| v.push(5))
+        .or_default();
+
+    map.entry("bye".to_string()).or_default();
+
+    map.entry("bye".to_string())
+        .and_modify(|v| v.push(3))
+        .and_modify(|v| v.push(4))
+        .and_modify(|v| v.push(5));
+
+    map.entry("there".to_string()).and_modify(|v| v.push(3));
+
+    assert_eq!(map["hello"], &[4, 5]);
+    assert_eq!(map["bye"], &[3, 4, 5]);
+    assert_eq!(map.get("there"), None);
 }
 
 #[test]
@@ -366,6 +412,372 @@ fn test_into_iter_drop() {
     assert_eq!(a, 1);
     assert_eq!(b, 1);
     assert_eq!(c, 1);
+}
+
+#[test]
+fn test_drain() {
+    let data = [("a", 1), ("b", 2), ("c", 3), ("d", 4)];
+
+    let mut map = data.iter().copied().collect::<LinkedHashMap<_, _>>();
+    assert_eq!(map.len(), 4);
+    let mut iter = map.drain();
+    assert_eq!(iter.size_hint(), (4, Some(4)));
+    assert_eq!(iter.next(), Some(("a", 1)));
+    assert_eq!(iter.size_hint(), (3, Some(3)));
+    assert_eq!(iter.next(), Some(("b", 2)));
+    assert_eq!(iter.size_hint(), (2, Some(2)));
+    assert_eq!(iter.next(), Some(("c", 3)));
+    assert_eq!(iter.size_hint(), (1, Some(1)));
+    assert_eq!(iter.next(), Some(("d", 4)));
+    assert_eq!(iter.size_hint(), (0, Some(0)));
+    assert_eq!(iter.next(), None);
+    assert_eq!(iter.size_hint(), (0, Some(0)));
+    assert_eq!(iter.next(), None);
+    assert_eq!(iter.size_hint(), (0, Some(0)));
+    assert_eq!(iter.next_back(), None);
+    assert_eq!(iter.size_hint(), (0, Some(0)));
+    drop(iter);
+    assert_eq!(map.len(), 0);
+
+    map.extend(data.iter().copied());
+    assert_eq!(map.len(), 4);
+    let mut iter = map.drain();
+    assert_eq!(iter.size_hint(), (4, Some(4)));
+    assert_eq!(iter.next_back(), Some(("d", 4)));
+    assert_eq!(iter.size_hint(), (3, Some(3)));
+    assert_eq!(iter.next_back(), Some(("c", 3)));
+    assert_eq!(iter.size_hint(), (2, Some(2)));
+    assert_eq!(iter.next_back(), Some(("b", 2)));
+    assert_eq!(iter.size_hint(), (1, Some(1)));
+    assert_eq!(iter.next_back(), Some(("a", 1)));
+    assert_eq!(iter.size_hint(), (0, Some(0)));
+    assert_eq!(iter.next_back(), None);
+    assert_eq!(iter.next_back(), None);
+    assert_eq!(iter.next(), None);
+    drop(iter);
+    assert_eq!(map.len(), 0);
+
+    map.extend(data.iter().rev().copied());
+    assert!(map.insert("e", 5).is_none());
+    assert!(map.insert("f", 6).is_none());
+    assert_eq!(map.len(), 6);
+    assert_eq!(map.remove("b"), Some(2));
+    assert!(map.get("b").is_none());
+    assert_eq!(map.len(), 5);
+    let mut iter = map.drain();
+    assert_eq!(iter.size_hint(), (5, Some(5)));
+    assert_eq!(iter.next(), Some(("d", 4)));
+    assert_eq!(iter.next(), Some(("c", 3)));
+    assert_eq!(iter.next_back(), Some(("f", 6)));
+    assert_eq!(iter.next(), Some(("a", 1)));
+    assert_eq!(iter.next(), Some(("e", 5)));
+    assert_eq!(iter.next(), None);
+    assert_eq!(iter.next(), None);
+    drop(iter);
+    assert_eq!(map.len(), 0);
+
+    map.insert("g", 2);
+    assert_eq!(map.get("g"), Some(&2));
+    assert_eq!(map.len(), 1);
+}
+
+#[test]
+fn test_drain_corners() {
+    {
+        let mut map = LinkedHashMap::<String, String>::new();
+        assert_eq!(map.len(), 0);
+        assert_eq!(map.drain().collect::<Vec<_>>(), vec![]);
+        assert_eq!(map.len(), 0);
+        assert!(map.is_empty());
+        assert!(map.iter().collect::<Vec<_>>().is_empty());
+    }
+    {
+        let mut map = LinkedHashMap::<String, String>::new();
+        assert_eq!(map.drain().rev().size_hint(), (0, Some(0)));
+        assert!(map.into_iter().collect::<Vec<_>>().is_empty());
+    }
+    {
+        let mut map = LinkedHashMap::<String, String>::new();
+        assert_eq!(map.drain().size_hint(), (0, Some(0)));
+        assert_eq!(map.len(), 0);
+        assert!(map.is_empty());
+        assert!(map.iter_mut().collect::<Vec<_>>().is_empty());
+    }
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("a", 1);
+        assert_eq!(map.len(), 1);
+        assert_eq!(map.drain().collect::<Vec<_>>(), vec![("a", 1)]);
+        assert_eq!(map.len(), 0);
+        assert!(map.get("a").is_none());
+    }
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("b", 2);
+        assert_eq!(map.len(), 1);
+        assert_eq!(map.drain().rev().collect::<Vec<_>>(), vec![("b", 2)]);
+        assert!(map.into_iter().rev().collect::<Vec<_>>().is_empty());
+    }
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("c", 3);
+        map.insert("d", 4);
+        assert_eq!(map.len(), 2);
+        assert_eq!(map.drain().collect::<Vec<_>>(), vec![("c", 3), ("d", 4)]);
+    }
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("e", 5);
+        map.insert("f", 6);
+        assert_eq!(map.len(), 2);
+        assert_eq!(
+            map.drain().rev().collect::<Vec<_>>(),
+            vec![("f", 6), ("e", 5)]
+        );
+    }
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("e", 5);
+        assert_eq!(map.remove("e"), Some(5));
+        assert_eq!(map.len(), 0);
+        let iter = map.drain();
+        assert_eq!(iter.size_hint(), (0, Some(0)));
+        assert_eq!(iter.collect::<Vec<_>>(), vec![]);
+        assert_eq!(map.len(), 0);
+        assert!(map.is_empty());
+        assert!(map.iter_mut().rev().collect::<Vec<_>>().is_empty());
+    }
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("e", 5);
+        assert_eq!(map.remove("e"), Some(5));
+        assert_eq!(map.len(), 0);
+        let iter = map.drain().rev();
+        assert_eq!(iter.size_hint(), (0, Some(0)));
+        assert_eq!(iter.collect::<Vec<_>>(), vec![]);
+        assert_eq!(map.len(), 0);
+        assert!(map.is_empty());
+        assert!(map.iter_mut().rev().collect::<Vec<_>>().is_empty());
+    }
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("e", 5);
+        assert_eq!(map.remove("e"), Some(5));
+        assert_eq!(map.len(), 0);
+        assert_eq!(map.drain().collect::<Vec<_>>(), vec![]);
+        assert_eq!(map.len(), 0);
+        assert!(map.into_iter().rev().collect::<Vec<_>>().is_empty());
+    }
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("e", 5);
+        assert_eq!(map.remove("e"), Some(5));
+        assert_eq!(map.len(), 0);
+        assert_eq!(map.drain().rev().collect::<Vec<_>>(), vec![]);
+        assert_eq!(map.len(), 0);
+        assert!(map.into_iter().collect::<Vec<_>>().is_empty());
+    }
+}
+
+#[test]
+fn test_drain_forget() {
+    let data = [("a", 1), ("b", 2), ("c", 3), ("d", 4)];
+
+    let mut map = data.iter().copied().collect::<LinkedHashMap<_, _>>();
+    assert_eq!(map.len(), 4);
+    let iter = map.drain();
+    std::mem::forget(iter);
+    assert_eq!(map.len(), 0);
+    assert!(map.get("a").is_none());
+    assert!(map.get("b").is_none());
+    assert!(map.iter().collect::<Vec<_>>().is_empty());
+    assert!(map.iter().rev().collect::<Vec<_>>().is_empty());
+
+    map.extend(data.iter().copied());
+    let mut iter = map.drain();
+    assert_eq!(iter.next(), Some(("a", 1)));
+    std::mem::forget(iter);
+    assert_eq!(map.len(), 0);
+    assert!(map.get("a").is_none());
+    assert!(map.get("b").is_none());
+    assert!(map.iter_mut().collect::<Vec<_>>().is_empty());
+    assert!(map.iter_mut().rev().collect::<Vec<_>>().is_empty());
+
+    map.extend(data.iter().rev().copied());
+    let mut iter = map.drain();
+    assert_eq!(iter.next_back(), Some(("a", 1)));
+    std::mem::forget(iter);
+    assert_eq!(map.len(), 0);
+    assert!(map.get("a").is_none());
+    assert!(map.get("b").is_none());
+    assert!(map.iter_mut().collect::<Vec<_>>().is_empty());
+    assert!(map.iter_mut().rev().collect::<Vec<_>>().is_empty());
+
+    map.extend(data.iter().rev().copied());
+    let mut iter = map.drain();
+    assert_eq!(
+        iter.by_ref().collect::<Vec<_>>(),
+        data.iter().rev().copied().collect::<Vec<_>>()
+    );
+    std::mem::forget(iter);
+    assert_eq!(map.len(), 0);
+    assert!(map.get("a").is_none());
+    assert!(map.get("b").is_none());
+    assert!(map.iter_mut().collect::<Vec<_>>().is_empty());
+    assert!(map.iter_mut().rev().collect::<Vec<_>>().is_empty());
+
+    map.extend(data.iter().rev().copied());
+    let mut iter = map.drain();
+    assert_eq!(
+        iter.by_ref().rev().collect::<Vec<_>>(),
+        data.iter().copied().collect::<Vec<_>>()
+    );
+    std::mem::forget(iter);
+    assert_eq!(map.len(), 0);
+    assert!(map.get("a").is_none());
+    assert!(map.get("b").is_none());
+    assert!(map.iter_mut().collect::<Vec<_>>().is_empty());
+    assert!(map.iter_mut().rev().collect::<Vec<_>>().is_empty());
+}
+
+#[test]
+fn test_drain_drop() {
+    struct Counter<'a>(&'a mut usize);
+
+    impl<'a> Drop for Counter<'a> {
+        fn drop(&mut self) {
+            *self.0 += 1;
+        }
+    }
+
+    let mut a = 0;
+    let mut b = 0;
+    let mut c = 0;
+
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("a", Counter(&mut a));
+        map.insert("b", Counter(&mut b));
+        map.insert("c", Counter(&mut c));
+
+        let mut iter = map.drain();
+        assert_eq!(iter.next().unwrap().0, "a");
+        assert_eq!(iter.next_back().unwrap().0, "c");
+    }
+
+    assert_eq!(a, 1);
+    assert_eq!(b, 1);
+    assert_eq!(c, 1);
+
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("a", Counter(&mut a));
+        map.insert("b", Counter(&mut b));
+        map.insert("c", Counter(&mut c));
+
+        let _iter = map.drain();
+    }
+
+    assert_eq!(a, 2);
+    assert_eq!(b, 2);
+    assert_eq!(c, 2);
+
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("a", Counter(&mut a));
+        map.insert("b", Counter(&mut b));
+        map.insert("c", Counter(&mut c));
+
+        let iter = map.drain();
+        std::mem::forget(iter);
+        assert_eq!(map.len(), 0);
+
+        assert!(map.is_empty());
+        let mut normal_iter = map.iter();
+        assert!(normal_iter.next().is_none());
+        assert!(normal_iter.next_back().is_none());
+    }
+
+    assert_eq!(a, 2);
+    assert_eq!(b, 2);
+    assert_eq!(c, 2);
+
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("a", Counter(&mut a));
+        map.insert("b", Counter(&mut b));
+        map.insert("c", Counter(&mut c));
+
+        let iter = map.drain();
+        std::mem::forget(iter);
+
+        assert_eq!(map.len(), 0);
+        let mut normal_iter = map.iter();
+        assert!(normal_iter.next().is_none());
+        assert!(normal_iter.next_back().is_none());
+    }
+
+    assert_eq!(a, 2);
+    assert_eq!(b, 2);
+    assert_eq!(c, 2);
+
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("a", Counter(&mut a));
+        map.insert("b", Counter(&mut b));
+        map.insert("c", Counter(&mut c));
+
+        let iter = map.drain();
+        for _ in iter {}
+    }
+
+    assert_eq!(a, 3);
+    assert_eq!(b, 3);
+    assert_eq!(c, 3);
+
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("a", Counter(&mut a));
+        map.insert("b", Counter(&mut b));
+        map.insert("c", Counter(&mut c));
+
+        let iter = map.drain();
+        for _ in iter.rev() {}
+    }
+
+    assert_eq!(a, 4);
+    assert_eq!(b, 4);
+    assert_eq!(c, 4);
+
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("a", Counter(&mut a));
+        map.insert("b", Counter(&mut b));
+        map.insert("c", Counter(&mut c));
+
+        let mut iter = map.drain();
+        assert!(iter.next().is_some());
+        std::mem::forget(iter);
+    }
+
+    assert_eq!(a, 5);
+    assert_eq!(b, 4);
+    assert_eq!(c, 4);
+
+    {
+        let mut map = LinkedHashMap::new();
+        map.insert("a", Counter(&mut a));
+        map.insert("b", Counter(&mut b));
+        map.insert("c", Counter(&mut c));
+
+        let mut iter = map.drain();
+        assert!(iter.next_back().is_some());
+        std::mem::forget(iter);
+    }
+
+    assert_eq!(a, 5);
+    assert_eq!(b, 4);
+    assert_eq!(c, 5);
 }
 
 #[test]

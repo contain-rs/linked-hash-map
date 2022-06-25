@@ -46,7 +46,7 @@ use std::iter;
 use std::marker;
 use std::mem;
 use std::ops::{Index, IndexMut};
-use std::ptr;
+use std::ptr::{self, addr_of_mut};
 
 struct KeyRef<K> {
     k: *const K,
@@ -693,6 +693,60 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
         }
     }
 
+    /// Clears the map, returning all key-value pairs as an iterator. Keeps the
+    /// allocated memory for reuse.
+    ///
+    /// If the returned iterator is dropped before being fully consumed, it
+    /// drops the remaining key-value pairs. The returned iterator keeps a
+    /// mutable borrow on the vector to optimize its implementation.
+    ///
+    /// Current performance implications (why to use this over into_iter()):
+    ///
+    /// * Clears the inner HashMap instead of dropping it
+    /// * Puts all drained nodes in the free-list instead of deallocating them
+    /// * Avoids deallocating the sentinel node
+    pub fn drain(&mut self) -> Drain<K, V> {
+        let len = self.len();
+        // Map should be empty now, regardless of current state
+        self.map.clear();
+        let (head, tail) = if len != 0 {
+            // This is basically the same as IntoIter's impl, but we don't
+            // deallocate/drop anything. Instead we make the sentinel head node
+            // point at itself (same state you get from removing the last element from a map),
+            // and then append the entire list to the free list. At this point all the entries
+            // have essentially been fed into mem::forget. The Drain iterator will then iterate
+            // over those nodes in the freelist (using  `len` to know where to stop) and `read`
+            // the values out of the nodes, "unforgetting" them.
+            //
+            // This design results in no observable consequences for mem::forgetting the
+            // drain iterator, because the drain iterator has no responsibility to "fix up"
+            // things during iteration/destruction. That said, you will effectively mem::forget
+            // any elements that weren't yielded yet.
+            unsafe {
+                debug_assert!(!self.head.is_null());
+                debug_assert!(!(*self.head).prev.is_null());
+                debug_assert!((*self.head).prev != self.head);
+                let head = (*self.head).prev;
+                let tail = (*self.head).next;
+                (*self.head).prev = self.head;
+                (*self.head).next = self.head;
+                (*head).next = self.free;
+                (*tail).prev = ptr::null_mut();
+                self.free = tail;
+                (head, tail)
+            }
+        } else {
+            (ptr::null_mut(), ptr::null_mut())
+        };
+
+        Drain {
+            head,
+            tail,
+            remaining: len,
+            marker: marker::PhantomData,
+        }
+    }
+
     /// Returns a double-ended iterator visiting all key in order of insertion.
     ///
     /// # Examples
@@ -903,6 +957,14 @@ pub struct IntoIter<K, V> {
     marker: marker::PhantomData<(K, V)>,
 }
 
+/// A draining insertion-order iterator over a `LinkedHashMap`'s entries.
+pub struct Drain<'a, K, V> {
+    head: *mut Node<K, V>,
+    tail: *mut Node<K, V>,
+    remaining: usize,
+    marker: marker::PhantomData<&'a mut (K, V)>,
+}
+
 /// An insertion-order iterator over a `LinkedHashMap`'s entries represented as
 /// an `OccupiedEntry`.
 pub struct Entries<'a, K: 'a, V: 'a, S: 'a = hash_map::RandomState> {
@@ -920,6 +982,13 @@ where
 }
 
 unsafe impl<'a, K, V> Send for IterMut<'a, K, V>
+where
+    K: Send,
+    V: Send,
+{
+}
+
+unsafe impl<'a, K, V> Send for Drain<'a, K, V>
 where
     K: Send,
     V: Send,
@@ -955,6 +1024,12 @@ where
 {
 }
 
+unsafe impl<'a, K, V> Sync for Drain<'a, K, V>
+where
+    K: Sync,
+    V: Sync,
+{
+}
 unsafe impl<K, V> Sync for IntoIter<K, V>
 where
     K: Sync,
@@ -1080,6 +1155,54 @@ impl<K, V> Iterator for IntoIter<K, V> {
     }
 }
 
+impl<'a, K, V> Iterator for Drain<'a, K, V> {
+    type Item = (K, V);
+
+    fn next(&mut self) -> Option<(K, V)> {
+        if self.remaining == 0 {
+            return None;
+        }
+        self.remaining -= 1;
+        unsafe {
+            let prev = (*self.head).prev;
+            // Read the values out, the node is in the free-list already so these will
+            // be treated as uninit memory.
+            let k = addr_of_mut!((*self.head).key).read();
+            let v = addr_of_mut!((*self.head).value).read();
+            self.head = prev;
+            Some((k, v))
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.remaining, Some(self.remaining))
+    }
+}
+
+impl<'a, K, V> DoubleEndedIterator for Drain<'a, K, V> {
+    fn next_back(&mut self) -> Option<(K, V)> {
+        if self.remaining == 0 {
+            return None;
+        }
+        self.remaining -= 1;
+        unsafe {
+            let next = (*self.tail).next;
+            // Read the values out, the node is in the free-list already so these will
+            // be treated as uninit memory.
+            let k = addr_of_mut!((*self.tail).key).read();
+            let v = addr_of_mut!((*self.tail).value).read();
+            self.tail = next;
+            Some((k, v))
+        }
+    }
+}
+
+impl<'a, K, V> ExactSizeIterator for Drain<'a, K, V> {
+    fn len(&self) -> usize {
+        self.remaining
+    }
+}
+
 impl<'a, K, V, S: BuildHasher> Iterator for Entries<'a, K, V, S> {
     type Item = OccupiedEntry<'a, K, V, S>;
 
@@ -1176,6 +1299,12 @@ impl<K, V> Drop for IntoIter<K, V> {
                 self.tail = next;
             }
         }
+    }
+}
+
+impl<'a, K, V> Drop for Drain<'a, K, V> {
+    fn drop(&mut self) {
+        for _ in self {}
     }
 }
 
@@ -1358,6 +1487,33 @@ impl<'a, K: Hash + Eq, V, S: BuildHasher> Entry<'a, K, V, S> {
         match self {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => entry.insert(default()),
+        }
+    }
+
+    /// Provides in-place mutable access to an occupied entry before any
+    /// potential inserts into the map.
+    pub fn and_modify<F>(self, f: F) -> Self
+    where
+        F: FnOnce(&mut V),
+    {
+        match self {
+            Entry::Occupied(mut entry) => {
+                f(entry.get_mut());
+                Entry::Occupied(entry)
+            }
+            Entry::Vacant(entry) => Entry::Vacant(entry),
+        }
+    }
+
+    /// Ensures a value is in the entry by inserting the default value if empty,
+    /// and returns a mutable reference to the value in the entry.
+    pub fn or_default(self) -> &'a mut V
+    where
+        V: Default,
+    {
+        match self {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => entry.insert(V::default()),
         }
     }
 }
