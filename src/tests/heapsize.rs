@@ -1,4 +1,4 @@
-#![cfg(feature = "heapsize_impl")]
+#![cfg(all(feature = "heapsize_impl", not(miri)))]
 
 extern crate heapsize;
 extern crate linked_hash_map;

@@ -1,9 +1,7 @@
 #![allow(clippy::needless_collect)]
 #![allow(clippy::iter_cloned_collect)]
 
-extern crate linked_hash_map;
-
-use linked_hash_map::{Entry, LinkedHashMap};
+use crate::{Entry, LinkedHashMap};
 
 fn assert_opt_eq<V: PartialEq>(opt: Option<&V>, v: V) {
     assert!(opt.is_some());
@@ -833,9 +831,50 @@ fn test_send_sync() {
     fn is_send_sync<T: Send + Sync>() {}
 
     is_send_sync::<LinkedHashMap<u32, i32>>();
-    is_send_sync::<linked_hash_map::Iter<u32, i32>>();
-    is_send_sync::<linked_hash_map::IterMut<u32, i32>>();
-    is_send_sync::<linked_hash_map::IntoIter<u32, i32>>();
-    is_send_sync::<linked_hash_map::Keys<u32, i32>>();
-    is_send_sync::<linked_hash_map::Values<u32, i32>>();
+    is_send_sync::<crate::Iter<u32, i32>>();
+    is_send_sync::<crate::IterMut<u32, i32>>();
+    is_send_sync::<crate::IntoIter<u32, i32>>();
+    is_send_sync::<crate::Keys<u32, i32>>();
+    is_send_sync::<crate::Values<u32, i32>>();
+    is_send_sync::<crate::Drain<u32, i32>>();
+}
+
+#[cfg(all(feature = "nightly", test, not(miri)))]
+mod bench {
+    extern crate test;
+
+    use super::LinkedHashMap;
+
+    #[bench]
+    fn not_recycled_cycling(b: &mut test::Bencher) {
+        let mut hash_map = LinkedHashMap::with_capacity(1000);
+        for i in 0usize..1000 {
+            hash_map.insert(i, i);
+        }
+        b.iter(|| {
+            for i in 0usize..1000 {
+                hash_map.remove(&i);
+            }
+            hash_map.clear_free_list();
+            for i in 0usize..1000 {
+                hash_map.insert(i, i);
+            }
+        })
+    }
+
+    #[bench]
+    fn recycled_cycling(b: &mut test::Bencher) {
+        let mut hash_map = LinkedHashMap::with_capacity(1000);
+        for i in 0usize..1000 {
+            hash_map.insert(i, i);
+        }
+        b.iter(|| {
+            for i in 0usize..1000 {
+                hash_map.remove(&i);
+            }
+            for i in 0usize..1000 {
+                hash_map.insert(i, i);
+            }
+        })
+    }
 }

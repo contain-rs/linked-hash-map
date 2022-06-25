@@ -14,14 +14,16 @@ homepage = "https://github.com/contain-rs/linked-hash-map"
 documentation = "https://docs.rs/linked-hash-map"
 keywords = ["data-structures"]
 readme = "README.md"
-exclude = ["/.travis.yml", "/deploy-docs.sh"]
+exclude = [".github", "src/tests"]
 
 [features]
 nightly = []
-serde_impl = ["serde", "serde_test"]
+serde_impl = ["serde"]
 heapsize_impl = ["heapsize"]
 
 [dependencies]
 serde = { version = "1.0", optional = true }
-serde_test = { version = "1.0", optional = true }
 heapsize = { version = "0.4", optional = true }
+
+[dev-dependencies]
+serde_test = { version = "1.0" }

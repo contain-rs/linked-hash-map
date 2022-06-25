@@ -36,6 +36,8 @@ pub mod serde;
 // Optional Heapsize support
 #[cfg(feature = "heapsize_impl")]
 mod heapsize;
+#[cfg(test)]
+mod tests;
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -1612,45 +1614,5 @@ impl<'a, K: 'a + Hash + Eq, V: 'a, S: BuildHasher> VacantEntry<'a, K, V, S> {
 
         let ret = self.map.map.entry(KeyRef { k: keyref }).or_insert(node);
         unsafe { &mut (**ret).value }
-    }
-}
-
-#[cfg(all(feature = "nightly", test))]
-mod bench {
-    extern crate test;
-
-    use super::LinkedHashMap;
-
-    #[bench]
-    fn not_recycled_cycling(b: &mut test::Bencher) {
-        let mut hash_map = LinkedHashMap::with_capacity(1000);
-        for i in 0usize..1000 {
-            hash_map.insert(i, i);
-        }
-        b.iter(|| {
-            for i in 0usize..1000 {
-                hash_map.remove(&i);
-            }
-            hash_map.clear_free_list();
-            for i in 0usize..1000 {
-                hash_map.insert(i, i);
-            }
-        })
-    }
-
-    #[bench]
-    fn recycled_cycling(b: &mut test::Bencher) {
-        let mut hash_map = LinkedHashMap::with_capacity(1000);
-        for i in 0usize..1000 {
-            hash_map.insert(i, i);
-        }
-        b.iter(|| {
-            for i in 0usize..1000 {
-                hash_map.remove(&i);
-            }
-            for i in 0usize..1000 {
-                hash_map.insert(i, i);
-            }
-        })
     }
 }
