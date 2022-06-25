@@ -589,7 +589,7 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
     /// assert_eq!(map.back(), Some((&2, &20)));
     /// ```
     #[inline]
-    pub fn back(&mut self) -> Option<(&K, &V)> {
+    pub fn back(&self) -> Option<(&K, &V)> {
         if self.is_empty() {
             return None;
         }
