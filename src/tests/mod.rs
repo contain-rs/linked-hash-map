@@ -112,6 +112,100 @@ fn test_entry_and_modify() {
 }
 
 #[test]
+fn test_entry_refresh_insert_vacant() {
+    let mut map = LinkedHashMap::new();
+    match map.entry_refresh("1".to_string()) {
+        Entry::Vacant(e) => {
+            assert_eq!(*e.insert(vec![10, 10]), vec![10, 10]);
+        }
+        _ => panic!("fail"),
+    }
+    assert!(map.contains_key("1"));
+    assert_eq!(map["1"], vec![10, 10]);
+
+    match map.entry_refresh("1".to_string()) {
+        Entry::Occupied(mut e) => {
+            assert_eq!(*e.get(), vec![10, 10]);
+            assert_eq!(e.insert(vec![10, 16]), vec![10, 10]);
+        }
+        _ => panic!("fail"),
+    }
+
+    assert!(map.contains_key("1"));
+    assert_eq!(map["1"], vec![10, 16]);
+
+    match map.entry_refresh("1".to_string()) {
+        Entry::Occupied(e) => {
+            assert_eq!(e.remove(), vec![10, 16]);
+        }
+        _ => panic!("fail"),
+    }
+}
+
+#[test]
+fn test_entry_refresh_or_default() {
+    let mut map = LinkedHashMap::<String, Vec<u32>>::new();
+    map.entry_refresh("hello".to_string()).or_default().push(4);
+    map.entry_refresh("hello".to_string()).or_default().push(5);
+    map.entry_refresh("hello".to_string()).or_default().push(8);
+
+    map.entry_refresh("bye".to_string()).or_default().push(9);
+
+    map.entry_refresh("there".to_string()).or_default();
+
+    assert_eq!(map["hello"], &[4, 5, 8]);
+    assert_eq!(map["bye"], &[9]);
+    assert_eq!(map["there"], &[]);
+}
+
+#[test]
+fn test_entry_refresh_and_modify() {
+    let mut map = LinkedHashMap::<String, Vec<u32>>::new();
+    map.entry_refresh("hello".to_string())
+        .and_modify(|v| v.push(3))
+        .or_default();
+    map.entry_refresh("hello".to_string())
+        .and_modify(|v| v.push(4))
+        .or_default();
+    map.entry_refresh("hello".to_string())
+        .and_modify(|v| v.push(5))
+        .or_default();
+
+    map.entry_refresh("bye".to_string()).or_default();
+
+    map.entry_refresh("bye".to_string())
+        .and_modify(|v| v.push(3))
+        .and_modify(|v| v.push(4))
+        .and_modify(|v| v.push(5));
+
+    map.entry_refresh("there".to_string())
+        .and_modify(|v| v.push(3));
+
+    assert_eq!(map["hello"], &[4, 5]);
+    assert_eq!(map["bye"], &[3, 4, 5]);
+    assert_eq!(map.get("there"), None);
+}
+
+#[test]
+fn test_entry_refresh_refreshing() {
+    let mut map = LinkedHashMap::new();
+
+    for ch in "this is refreshing".chars() {
+        let counter = map.entry_refresh(ch).or_insert(0);
+        *counter += 1;
+    }
+    assert_eq!(map.back(), Some((&'g', &1)));
+    map.entry_refresh('r').and_modify(|v| *v *= 2);
+    assert_eq!(map.back(), Some((&'r', &4)));
+    map.entry_refresh('y').and_modify(|v| *v *= 2).or_insert(0);
+    assert_eq!(map.back(), Some((&'y', &0)));
+
+    assert_eq!(map.front(), Some((&'t', &1)));
+    map.entry_refresh('t');
+    assert_eq!(map.back(), Some((&'t', &1)));
+}
+
+#[test]
 fn test_entries_replacing() {
     let mut map = LinkedHashMap::new();
     map.insert("a", 10);
@@ -184,6 +278,7 @@ fn test_entries_remove() {
 
     assert!(map.is_empty());
 }
+
 #[test]
 fn entries_insert() {
     let mut map = LinkedHashMap::new();
