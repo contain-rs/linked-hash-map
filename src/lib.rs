@@ -262,6 +262,50 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
         Entry::Vacant(VacantEntry { key: k, map: self })
     }
 
+    /// Gets the given key's corresponding entry in the map for in-place manipulation.
+    /// If entry is found, it is moved to the end of the list.
+    /// This operation can be used in implementation of LRU cache.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use linked_hash_map::LinkedHashMap;
+    ///
+    /// let mut letters = LinkedHashMap::new();
+    ///
+    /// for ch in "a short treatise on fungi".chars() {
+    ///     let counter = letters.entry_refresh(ch).or_insert(0);
+    ///     *counter += 1;
+    /// }
+    ///
+    /// assert_eq!(letters[&'s'], 2);
+    /// assert_eq!(letters[&'t'], 3);
+    /// assert_eq!(letters[&'u'], 1);
+    /// assert_eq!(letters.get(&'y'), None);
+    ///
+    /// letters.entry_refresh('y').or_insert(0);
+    /// letters.entry_refresh('t').or_insert(0);
+    /// assert_eq!(letters.back(), Some((&'t', &3)));
+    /// ```
+    pub fn entry_refresh(&mut self, k: K) -> Entry<K, V, S> {
+        let self_ptr: *mut Self = self;
+
+        let (_value, node_ptr_opt) = match self.map.get(Qey::from_ref(&k)) {
+            None => (None, None),
+            Some(node) => (Some(unsafe { &mut (**node).value }), Some(*node)),
+        };
+        if let Some(node_ptr) = node_ptr_opt {
+            self.detach(node_ptr);
+            self.attach(node_ptr);
+            return Entry::Occupied(OccupiedEntry {
+                entry: node_ptr,
+                map: self_ptr,
+                marker: marker::PhantomData,
+            });
+        }
+        Entry::Vacant(VacantEntry { key: k, map: self })
+    }
+
     /// Returns an iterator visiting all entries in insertion order.
     /// Iterator element type is `OccupiedEntry<K, V, S>`. Allows for removal
     /// as well as replacing the entry.
