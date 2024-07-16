@@ -162,7 +162,7 @@ impl<K, V, S> LinkedHashMap<K, V, S> {
         let mut cur = (*self.head).next;
         while cur != self.head {
             let next = (*cur).next;
-            Box::from_raw(cur);
+            let _cur = Box::from_raw(cur);
             cur = next;
         }
     }
@@ -547,6 +547,30 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
             .map(|e| unsafe { (&(**e).key, &(**e).value) })
     }
 
+    /// Gets the first entry, but the value is mutable.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use linked_hash_map::LinkedHashMap;
+    /// let mut map = LinkedHashMap::new();
+    /// map.insert(1, 10);
+    /// map.insert(2, 20);
+    /// assert_eq!(map.front_mut(), Some((&1, &mut 10)));
+    /// ```
+    #[inline]
+    pub fn front_mut(&mut self) -> Option<(&K, &mut V)> {
+        if self.is_empty() {
+            return None;
+        }
+        let lru = unsafe { (*self.head).prev };
+        self.map
+            .get_mut(&KeyRef {
+                k: unsafe { &(*lru).key },
+            })
+            .map(|e| unsafe { (&(**e).key, &mut (**e).value) })
+    }
+
     /// Removes the last entry.
     ///
     /// # Examples
@@ -599,6 +623,30 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
                 k: unsafe { &(*mru).key },
             })
             .map(|e| unsafe { (&(**e).key, &(**e).value) })
+    }
+
+    /// Gets the last entry, but the value is mutable.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use linked_hash_map::LinkedHashMap;
+    /// let mut map = LinkedHashMap::new();
+    /// map.insert(1, 10);
+    /// map.insert(2, 20);
+    /// assert_eq!(map.back_mut(), Some((&2, &mut 20)));
+    /// ```
+    #[inline]
+    pub fn back_mut(&mut self) -> Option<(&K, &mut V)> {
+        if self.is_empty() {
+            return None;
+        }
+        let mru = unsafe { (*self.head).next };
+        self.map
+            .get_mut(&KeyRef {
+                k: unsafe { &(*mru).key },
+            })
+            .map(|e| unsafe { (&(**e).key, &mut (**e).value) })
     }
 
     /// Returns the number of key-value pairs in the map.
@@ -1297,7 +1345,7 @@ impl<K, V> Drop for IntoIter<K, V> {
         for _ in 0..self.remaining {
             unsafe {
                 let next = (*self.tail).next;
-                Box::from_raw(self.tail);
+                let _tail = Box::from_raw(self.tail);
                 self.tail = next;
             }
         }
