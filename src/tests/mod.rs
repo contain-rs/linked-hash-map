@@ -878,3 +878,61 @@ mod bench {
         })
     }
 }
+
+// Regression test for panic-safety in `into_iter`. The consuming iterator
+// tears the map down manually (freeing the sentinel node, then dropping the
+// internal HashMap) before committing the ownership transfer. The HashMap owns
+// the hasher `S`, whose `Drop` is user-controlled and may panic. If it panics
+// after the sentinel has been freed, the original map must not be dropped
+// automatically -- doing so would follow the now-dangling head pointer, a
+// use-after-free. This test drives exactly that path under `catch_unwind`; with
+// the fix it unwinds cleanly (no double-free / UAF). Any leak of the remaining
+// nodes is acceptable: leaking on panic is safe, unlike memory corruption.
+#[test]
+fn into_iter_panicking_hasher_is_sound() {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::BuildHasher;
+    use std::panic::{catch_unwind, AssertUnwindSafe};
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    // A BuildHasher whose Drop panics exactly once.
+    struct PanicHasher {
+        armed: AtomicBool,
+    }
+
+    impl BuildHasher for PanicHasher {
+        type Hasher = DefaultHasher;
+        fn build_hasher(&self) -> DefaultHasher {
+            DefaultHasher::new()
+        }
+    }
+
+    impl Drop for PanicHasher {
+        fn drop(&mut self) {
+            // Panic only once; a second panic during unwinding would abort.
+            if self.armed.swap(false, Ordering::SeqCst) {
+                panic!("hasher drop panic");
+            }
+        }
+    }
+
+    let hasher = PanicHasher {
+        armed: AtomicBool::new(true),
+    };
+    let mut map = LinkedHashMap::with_hasher(hasher);
+    // Heap-owning entries so a re-drop would be a real use-after-free.
+    map.insert("key-0".to_string(), "value-0".to_string());
+    map.insert("key-1".to_string(), "value-1".to_string());
+
+    // Before the fix, the hasher's panic while `into_iter` drops the internal
+    // map left the original LinkedHashMap to be dropped during unwinding, whose
+    // destructor followed the freed sentinel -> heap-use-after-free (ASAN). The
+    // fix wraps `self` in ManuallyDrop, so the panic unwinds without that
+    // second destruction. Reaching this assertion without aborting is the point.
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let _ = map.into_iter();
+    }));
+
+    assert!(result.is_err(), "expected the hasher Drop to unwind");
+}
+
