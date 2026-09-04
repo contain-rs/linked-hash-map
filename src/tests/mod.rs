@@ -878,3 +878,109 @@ mod bench {
         })
     }
 }
+
+// Regression test for panic-safety in `into_iter`. The consuming iterator
+// tears the map down manually (freeing the sentinel node, then dropping the
+// internal HashMap) before committing the ownership transfer. The HashMap owns
+// the hasher `S`, whose `Drop` is user-controlled and may panic. If it panics
+// after the sentinel has been freed, the original map must not be dropped
+// automatically -- doing so would follow the now-dangling head pointer, a
+// use-after-free. This test drives exactly that path under `catch_unwind`; with
+// the fix it unwinds cleanly (no double-free / UAF). Any leak of the remaining
+// nodes is acceptable: leaking on panic is safe, unlike memory corruption.
+#[test]
+fn into_iter_panicking_hasher_is_sound() {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::BuildHasher;
+    use std::panic::{catch_unwind, AssertUnwindSafe};
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    // A BuildHasher whose Drop panics exactly once.
+    struct PanicHasher {
+        armed: AtomicBool,
+    }
+
+    impl BuildHasher for PanicHasher {
+        type Hasher = DefaultHasher;
+        fn build_hasher(&self) -> DefaultHasher {
+            DefaultHasher::new()
+        }
+    }
+
+    impl Drop for PanicHasher {
+        fn drop(&mut self) {
+            // Panic only once; a second panic during unwinding would abort.
+            if self.armed.swap(false, Ordering::SeqCst) {
+                panic!("hasher drop panic");
+            }
+        }
+    }
+
+    let hasher = PanicHasher {
+        armed: AtomicBool::new(true),
+    };
+    let mut map = LinkedHashMap::with_hasher(hasher);
+    // Heap-owning entries so a re-drop would be a real use-after-free.
+    map.insert("key-0".to_string(), "value-0".to_string());
+    map.insert("key-1".to_string(), "value-1".to_string());
+
+    // Before the fix, the hasher's panic while `into_iter` drops the internal
+    // map left the original LinkedHashMap to be dropped during unwinding, whose
+    // destructor followed the freed sentinel -> heap-use-after-free (ASAN). The
+    // fix wraps `self` in ManuallyDrop, so the panic unwinds without that
+    // second destruction. Reaching this assertion without aborting is the point.
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let _ = map.into_iter();
+    }));
+
+    assert!(result.is_err(), "expected the hasher Drop to unwind");
+}
+
+// Regression test for panic-safety in `clear`. `clear` frees the value nodes
+// (running each `K`/`V`'s user-controlled `Drop`) and only afterwards resets
+// the sentinel's guard links. If a value's `Drop` panics partway through, the
+// reset is skipped and `self.head` is left pointing at freed memory; the map's
+// own destructor then re-walks the chain during unwinding and frees it again
+// -- a double-free (CWE-415) reachable from safe Rust. This test drives that
+// path under `catch_unwind`; with the fix `clear` detaches the guard links
+// before freeing, so unwinding leaves an empty, self-consistent list (leaking
+// the unreached nodes, which is safe).
+#[test]
+fn clear_panicking_value_drop_is_sound() {
+    use std::panic::{catch_unwind, AssertUnwindSafe};
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    struct PanicOnDrop {
+        armed: AtomicBool,
+        _heap: String,
+    }
+
+    impl Drop for PanicOnDrop {
+        fn drop(&mut self) {
+            // Panic only once; a second panic during unwinding would abort.
+            if self.armed.swap(false, Ordering::SeqCst) {
+                panic!("value drop panic");
+            }
+        }
+    }
+
+    let mut map: LinkedHashMap<String, PanicOnDrop> = LinkedHashMap::new();
+    // Heap-owning entries so a re-drop would be a real use-after-free.
+    for i in 0..4 {
+        map.insert(
+            format!("key-{i}"),
+            PanicOnDrop {
+                armed: AtomicBool::new(i == 3),
+                _heap: "x".repeat(64),
+            },
+        );
+    }
+
+    let result = catch_unwind(AssertUnwindSafe(|| map.clear()));
+    assert!(result.is_err(), "expected the value Drop to unwind");
+
+    // Before the fix, the panic left `self.head` dangling; dropping the map
+    // here re-freed the chain -> double-free. With the fix the map is already
+    // an empty, self-consistent list, so this is sound.
+    drop(map);
+}

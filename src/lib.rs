@@ -622,13 +622,26 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
         // update the guard node if present
         if !self.head.is_null() {
             unsafe {
-                self.drop_entries();
+                // Detach the guard links *before* freeing any node. Freeing the
+                // value nodes runs each `K`/`V`'s user-controlled `Drop`, which
+                // may panic. If that happens after some nodes are freed but
+                // before the guard is reset, `self.head` would still point at
+                // freed memory; the map's own `Drop` then re-walks the chain and
+                // frees it again -- a double-free reachable from safe Rust. By
+                // resetting the guard first, `self.head` describes an empty list
+                // as soon as unwinding can begin, so no node is freed twice
+                // (any unreached nodes simply leak, which is safe).
+                let mut cur = (*self.head).next;
                 (*self.head).prev = self.head;
                 (*self.head).next = self.head;
+                while cur != self.head {
+                    let next = (*cur).next;
+                    Box::from_raw(cur);
+                    cur = next;
+                }
             }
         }
     }
-
     /// Returns a double-ended iterator visiting all key-value pairs in order of insertion.
     /// Iterator element type is `(&'a K, &'a V)`
     ///
@@ -1407,23 +1420,32 @@ impl<'a, K: Hash + Eq, V, S: BuildHasher> IntoIterator for &'a mut LinkedHashMap
 impl<K: Hash + Eq, V, S: BuildHasher> IntoIterator for LinkedHashMap<K, V, S> {
     type Item = (K, V);
     type IntoIter = IntoIter<K, V>;
-    fn into_iter(mut self) -> IntoIter<K, V> {
-        let (head, tail) = if !self.head.is_null() {
-            unsafe { ((*self.head).prev, (*self.head).next) }
+    fn into_iter(self) -> IntoIter<K, V> {
+        // Wrap `self` in `ManuallyDrop` up front. The teardown below can unwind
+        // (the internal HashMap owns the hasher `S`, whose `Drop` is
+        // user-controlled and may panic). If that happens after the sentinel
+        // node has already been freed, the original `LinkedHashMap` must NOT be
+        // dropped automatically -- its destructor would follow the now-dangling
+        // `head` pointer, a use-after-free. `ManuallyDrop` suppresses that drop
+        // unconditionally, instead of relying on a `mem::forget(self)` that is
+        // skipped when the teardown unwinds.
+        let mut this = mem::ManuallyDrop::new(self);
+
+        let (head, tail) = if !this.head.is_null() {
+            unsafe { ((*this.head).prev, (*this.head).next) }
         } else {
             (ptr::null_mut(), ptr::null_mut())
         };
-        let len = self.len();
+        let len = this.len();
 
-        if !self.head.is_null() {
-            unsafe { drop_empty_node(self.head) }
+        if !this.head.is_null() {
+            unsafe { drop_empty_node(this.head) }
         }
-        self.clear_free_list();
+        this.clear_free_list();
         // drop the HashMap but not the LinkedHashMap
         unsafe {
-            ptr::drop_in_place(&mut self.map);
+            ptr::drop_in_place(&mut this.map);
         }
-        mem::forget(self);
 
         IntoIter {
             head,
