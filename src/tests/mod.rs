@@ -936,3 +936,51 @@ fn into_iter_panicking_hasher_is_sound() {
     assert!(result.is_err(), "expected the hasher Drop to unwind");
 }
 
+// Regression test for panic-safety in `clear`. `clear` frees the value nodes
+// (running each `K`/`V`'s user-controlled `Drop`) and only afterwards resets
+// the sentinel's guard links. If a value's `Drop` panics partway through, the
+// reset is skipped and `self.head` is left pointing at freed memory; the map's
+// own destructor then re-walks the chain during unwinding and frees it again
+// -- a double-free (CWE-415) reachable from safe Rust. This test drives that
+// path under `catch_unwind`; with the fix `clear` detaches the guard links
+// before freeing, so unwinding leaves an empty, self-consistent list (leaking
+// the unreached nodes, which is safe).
+#[test]
+fn clear_panicking_value_drop_is_sound() {
+    use std::panic::{catch_unwind, AssertUnwindSafe};
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    struct PanicOnDrop {
+        armed: AtomicBool,
+        _heap: String,
+    }
+
+    impl Drop for PanicOnDrop {
+        fn drop(&mut self) {
+            // Panic only once; a second panic during unwinding would abort.
+            if self.armed.swap(false, Ordering::SeqCst) {
+                panic!("value drop panic");
+            }
+        }
+    }
+
+    let mut map: LinkedHashMap<String, PanicOnDrop> = LinkedHashMap::new();
+    // Heap-owning entries so a re-drop would be a real use-after-free.
+    for i in 0..4 {
+        map.insert(
+            format!("key-{i}"),
+            PanicOnDrop {
+                armed: AtomicBool::new(i == 3),
+                _heap: "x".repeat(64),
+            },
+        );
+    }
+
+    let result = catch_unwind(AssertUnwindSafe(|| map.clear()));
+    assert!(result.is_err(), "expected the value Drop to unwind");
+
+    // Before the fix, the panic left `self.head` dangling; dropping the map
+    // here re-freed the chain -> double-free. With the fix the map is already
+    // an empty, self-consistent list, so this is sound.
+    drop(map);
+}

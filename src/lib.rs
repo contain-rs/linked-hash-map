@@ -622,13 +622,26 @@ impl<K: Hash + Eq, V, S: BuildHasher> LinkedHashMap<K, V, S> {
         // update the guard node if present
         if !self.head.is_null() {
             unsafe {
-                self.drop_entries();
+                // Detach the guard links *before* freeing any node. Freeing the
+                // value nodes runs each `K`/`V`'s user-controlled `Drop`, which
+                // may panic. If that happens after some nodes are freed but
+                // before the guard is reset, `self.head` would still point at
+                // freed memory; the map's own `Drop` then re-walks the chain and
+                // frees it again -- a double-free reachable from safe Rust. By
+                // resetting the guard first, `self.head` describes an empty list
+                // as soon as unwinding can begin, so no node is freed twice
+                // (any unreached nodes simply leak, which is safe).
+                let mut cur = (*self.head).next;
                 (*self.head).prev = self.head;
                 (*self.head).next = self.head;
+                while cur != self.head {
+                    let next = (*cur).next;
+                    Box::from_raw(cur);
+                    cur = next;
+                }
             }
         }
     }
-
     /// Returns a double-ended iterator visiting all key-value pairs in order of insertion.
     /// Iterator element type is `(&'a K, &'a V)`
     ///
